@@ -11,6 +11,7 @@ import android.hardware.SensorManager;
 import android.hardware.display.DisplayManager;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -22,7 +23,13 @@ import android.view.Display;
  * Enabled (titan2_rear_enabled=1): the panel backlight is allowed, the display is on, the shell home
  * screen is on it; it sleeps with its own power group per titan2_rear_screen_off_timeout
  * (frameworks_base), wakes on a double tap (KeyHandler) and on flipping the phone (here).
- * Disabled: the display and touch are powered off, only the side key modes work (RearService).
+ * Disabled: the apps on it are closed, the display and touch are powered off, only the side key
+ * modes work (RearService).
+ * Flip to wake: the accelerometer is not a wakeup sensor, so a suspended phone sees no samples.
+ * It is sampled while the main screen is on and for FLIP_GRACE_MS after it turns off (with a
+ * partial wakelock, so "screen off, then put it down" works); after that the wakeup tilt
+ * detector (low power, in the sensor hub) wakes the phone on a change of orientation, and the
+ * accelerometer is sampled again for FLIP_TILT_MS to see whether it now lies face down.
  * Runs on its own thread: the agolddaemon calls wait for the daemon (boot) and must not block
  * the main thread of the persistent process.
  */
@@ -32,6 +39,11 @@ final class RearController implements SensorEventListener {
     /** The phone lies main screen down: Z acceleration, m/s^2. */
     private static final float FACE_DOWN_Z = -7.5f;
     private static final long FACE_DOWN_MS = 400;
+    /** Sampling after the main screen turns off. */
+    private static final long FLIP_GRACE_MS = 15_000;
+    /** Sampling after a tilt event while the main screen is off (the tilt detector reports
+     * after a ~2 s average, so the phone usually already lies still by then). */
+    private static final long FLIP_TILT_MS = 4_000;
 
     private final Context mContext;
     private final Handler mHandler;
@@ -41,13 +53,33 @@ final class RearController implements SensorEventListener {
     private int mLastSetting = -1;
     /** The rear display was not there yet: apply() again once a display is added. */
     private boolean mWaitingForDisplay;
-    private boolean mFlipRegistered;
+    private final PowerManager.WakeLock mWakeLock;
+    private final Sensor mAcc;
+    /** Wakeup tilt detector (TYPE_TILT_DETECTOR), or null. */
+    private final Sensor mTilt;
+    /** Flip to wake is on (rear enabled and titan2_rear_wake_flip). */
+    private boolean mFlip;
+    /** The main display is on (the phone is awake anyway). */
+    private boolean mMainOn = true;
+    /** The accelerometer is sampled until this time with the main screen off (uptime). */
+    private long mSampleUntil;
+    private boolean mAccRegistered;
+    private boolean mTiltRegistered;
     private long mFaceDownSince;
     private boolean mFaceDownHandled;
+    private final Runnable mSampleEnd = () -> {
+        mSampleUntil = 0;
+        updateSensors();
+    };
 
     RearController(Context context) {
         mContext = context;
         mSensors = context.getSystemService(SensorManager.class);
+        mAcc = mSensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mTilt = mSensors.getDefaultSensor(Sensor.TYPE_TILT_DETECTOR, true);
+        mWakeLock = context.getSystemService(PowerManager.class)
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Titan2Parts:rear-flip");
+        mWakeLock.setReferenceCounted(false);
         HandlerThread t = new HandlerThread(TAG);
         t.start();
         mHandler = new Handler(t.getLooper());
@@ -73,14 +105,22 @@ final class RearController implements SensorEventListener {
 
                     @Override
                     public void onDisplayChanged(int displayId) {
+                        if (displayId == Display.DEFAULT_DISPLAY) updateMainDisplay();
                     }
-                }, mHandler);
+                }, mHandler,
+                // display state changes are an event type of their own
+                DisplayManager.EVENT_TYPE_DISPLAY_ADDED | DisplayManager.EVENT_TYPE_DISPLAY_CHANGED
+                        | DisplayManager.EVENT_TYPE_DISPLAY_REMOVED
+                        | DisplayManager.EVENT_TYPE_DISPLAY_STATE);
         for (String key : new String[] {RearDisplay.SETTING_ENABLED,
                 RearDisplay.SETTING_WAKE_DOUBLE_TAP, RearDisplay.SETTING_WAKE_FLIP}) {
             mContext.getContentResolver().registerContentObserver(
                     Settings.System.getUriFor(key), false, o, UserHandle.USER_SYSTEM);
         }
-        mHandler.post(this::apply);
+        mHandler.post(() -> {
+            updateMainDisplay();
+            apply();
+        });
     }
 
     private void apply() {
@@ -111,13 +151,15 @@ final class RearController implements SensorEventListener {
             RearDisplay.setDoubleTap(false);
             // a side key mode owns the display: RearService turns it off when the mode ends
             if (!RearService.isActive()) {
+                // otherwise the system moves them to the main display
+                if (mEnabled) RearDisplay.closeApps(id);
                 dm.disableConnectedDisplay(id);
                 RearDisplay.setPanel(false);
             }
         }
         mEnabled = enabled;
-        setFlip(enabled
-                && RearDisplay.getInt(mContext, RearDisplay.SETTING_WAKE_FLIP, 1) == 1);
+        mFlip = enabled && RearDisplay.getInt(mContext, RearDisplay.SETTING_WAKE_FLIP, 1) == 1;
+        updateSensors();
     }
 
     /** The shell home screen on the rear display. */
@@ -140,38 +182,107 @@ final class RearController implements SensorEventListener {
         }
     }
 
-    private void setFlip(boolean on) {
-        if (on == mFlipRegistered) {
+    private void updateMainDisplay() {
+        Display d = mContext.getSystemService(DisplayManager.class)
+                .getDisplay(Display.DEFAULT_DISPLAY);
+        final boolean on = d == null || d.getState() == Display.STATE_ON;
+        if (on == mMainOn) {
             return;
         }
-        Sensor acc = mSensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        if (acc == null) {
-            return;
-        }
+        mMainOn = on;
+        Log.d(TAG, "main display " + (on ? "on" : "off"));
         if (on) {
-            mSensors.registerListener(this, acc, SensorManager.SENSOR_DELAY_NORMAL, mHandler);
+            stopSampling();
         } else {
-            mSensors.unregisterListener(this);
+            // the main screen was just turned off: the phone may be put down right after
+            sample(FLIP_GRACE_MS);
         }
-        mFlipRegistered = on;
+        updateSensors();
+    }
+
+    /** Sample the accelerometer for ms with the main screen off, holding the CPU awake. */
+    private void sample(long ms) {
+        final long now = SystemClock.uptimeMillis();
+        if (now + ms <= mSampleUntil) {
+            return;
+        }
+        mSampleUntil = now + ms;
+        mWakeLock.acquire(ms + 1000);
+        mHandler.removeCallbacks(mSampleEnd);
+        mHandler.postDelayed(mSampleEnd, ms);
+    }
+
+    private void stopSampling() {
+        mHandler.removeCallbacks(mSampleEnd);
+        mSampleUntil = 0;
+    }
+
+    /** Registers the sensors for the current state; the wakelock lives only while sampling. */
+    private void updateSensors() {
+        final boolean sampling = !mMainOn && SystemClock.uptimeMillis() < mSampleUntil;
+        final boolean acc = mFlip && mAcc != null && (mMainOn || sampling);
+        final boolean tilt = mFlip && mTilt != null && !mMainOn;
+        if (acc != mAccRegistered) {
+            if (acc) {
+                // the pose may have changed unseen (suspended): count face down afresh
+                mFaceDownSince = 0;
+                mSensors.registerListener(this, mAcc, SensorManager.SENSOR_DELAY_NORMAL, mHandler);
+            } else {
+                mSensors.unregisterListener(this, mAcc);
+            }
+            mAccRegistered = acc;
+        }
+        if (tilt != mTiltRegistered) {
+            if (tilt) {
+                mSensors.registerListener(this, mTilt, SensorManager.SENSOR_DELAY_NORMAL, mHandler);
+            } else {
+                mSensors.unregisterListener(this, mTilt);
+            }
+            mTiltRegistered = tilt;
+        }
+        if (!acc || mMainOn) {
+            if (!acc) stopSampling();
+            if (mWakeLock.isHeld()) mWakeLock.release();
+        }
     }
 
     @Override
     public void onSensorChanged(SensorEvent e) {
+        if (e.sensor.getType() == Sensor.TYPE_TILT_DETECTOR) {
+            if (!mMainOn && mFlip) {
+                // the orientation changed: a new chance to lie face down; the sensor service
+                // holds the CPU only until this returns
+                Log.d(TAG, "tilt, sampling the accelerometer");
+                mFaceDownHandled = false;
+                sample(FLIP_TILT_MS);
+                updateSensors();
+            }
+            return;
+        }
         RearDisplay.notePose(e);
         final long now = SystemClock.uptimeMillis();
         if (e.values[2] > FACE_DOWN_Z) {
+            if (mFaceDownSince != 0) Log.d(TAG, "face up, z=" + e.values[2]);
             mFaceDownSince = 0;
             mFaceDownHandled = false;
             return;
         }
         if (mFaceDownSince == 0) {
+            Log.d(TAG, "face down, z=" + e.values[2] + (mFaceDownHandled ? " (handled)" : ""));
             mFaceDownSince = now;
         } else if (!mFaceDownHandled && now - mFaceDownSince >= FACE_DOWN_MS) {
             mFaceDownHandled = true;
             final int id = RearDisplay.findId(mContext);
-            if (id != Display.INVALID_DISPLAY && !RearDisplay.isAwake(mContext, id)) {
+            final boolean awake = id != Display.INVALID_DISPLAY && RearDisplay.isAwake(mContext, id);
+            Log.i(TAG, "face down for " + FACE_DOWN_MS + " ms, rear display " + id
+                    + (awake ? " already awake" : ", waking it"));
+            if (id != Display.INVALID_DISPLAY && !awake) {
                 RearDisplay.wake(mContext, id, "flip");
+            }
+            if (!mMainOn) {
+                // done until the next tilt
+                stopSampling();
+                updateSensors();
             }
         }
     }

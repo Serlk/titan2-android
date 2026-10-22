@@ -44,6 +44,14 @@ public final class RearDisplays {
         return bySize;
     }
 
+    /** The display is enabled (DisplayManager.getDisplays() leaves disabled displays out). */
+    public static boolean isEnabled(Context c, int displayId) {
+        for (Display d : c.getSystemService(DisplayManager.class).getDisplays()) {
+            if (d.getDisplayId() == displayId) return true;
+        }
+        return false;
+    }
+
     public static int findId(Context c) {
         Display d = find(c);
         return d != null ? d.getDisplayId() : Display.INVALID_DISPLAY;

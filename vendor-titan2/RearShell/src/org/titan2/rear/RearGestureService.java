@@ -40,6 +40,9 @@ public class RearGestureService extends Service
         implements DisplayManager.DisplayListener, Cfg.Listener {
     private static final String TAG = "RearShell";
     private static final long HOLD_MS = 450;
+    /** Retry of a failed attach: the window manager adds the display after the display event. */
+    private static final long RETRY_MS = 250;
+    private static final int RETRY_MAX = 20;
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private DisplayManager mDm;
@@ -52,6 +55,8 @@ public class RearGestureService extends Service
     private InputMonitor mMonitor;
     private Receiver mReceiver;
     private int mDisplayId = Display.INVALID_DISPLAY;
+    private int mRetries;
+    private final Runnable mRetry = this::attach;
 
     // thresholds in pixels (from dp and sensitivity)
     private float mEdge, mTrigger, mHoldSlop;
@@ -86,8 +91,7 @@ public class RearGestureService extends Service
         mCfg.addListener(this);
         mDm.registerDisplayListener(this, mHandler);
         getContentResolver().registerContentObserver(
-                Settings.System.getUriFor(RearKeys.SYS_SYSTEM_DECORS), false, mDecorsObserver,
-                UserHandle.USER_ALL);
+                Settings.System.getUriFor(RearKeys.SYS_SYSTEM_DECORS), false, mDecorsObserver);
         mSystemDecors = readSystemDecors();
         attach();
     }
@@ -118,13 +122,20 @@ public class RearGestureService extends Service
         return null;
     }
 
-    /** Attach the monitor to the rear display (or detach if there is no display / gestures are off). */
+    /**
+     * Attach the monitor to the rear display (or detach if there is no display, it is disabled
+     * or gestures are off). A monitor belongs to the window manager's display content: one made
+     * for a disabled display, or while it is being removed, never sees a touch, so a disabled
+     * display gets none, and a display added again always gets a new one (onDisplayAdded).
+     */
     private void attach() {
+        mHandler.removeCallbacks(mRetry);
         Display d = RearDisplays.find(this);
         boolean enabled = mCfg.bool(RearKeys.GESTURES);
         mEnabled = enabled;
         mSens = mCfg.get(RearKeys.GESTURE_SENS);
-        int id = d != null && enabled ? d.getDisplayId() : Display.INVALID_DISPLAY;
+        int id = d != null && enabled && RearDisplays.isEnabled(this, d.getDisplayId())
+                ? d.getDisplayId() : Display.INVALID_DISPLAY;
         if (d != null) {
             Point p = new Point();
             d.getRealSize(p);
@@ -148,11 +159,18 @@ public class RearGestureService extends Service
         try {
             mMonitor = mIm.monitorGestureInput("titan2-rear-gestures", id);
             mReceiver = new Receiver(mMonitor);
+            mRetries = 0;
             Log.i(TAG, "gesture monitor on display " + id);
         } catch (RuntimeException e) {
-            Log.e(TAG, "monitorGestureInput(" + id + ") failed", e);
             mMonitor = null;
             mDisplayId = Display.INVALID_DISPLAY;
+            // the display event can come before the window manager has the display
+            if (mRetries++ < RETRY_MAX) {
+                Log.w(TAG, "monitorGestureInput(" + id + ") failed, retrying: " + e);
+                mHandler.postDelayed(mRetry, RETRY_MS);
+            } else {
+                Log.e(TAG, "monitorGestureInput(" + id + ") failed", e);
+            }
         }
     }
 
@@ -164,6 +182,7 @@ public class RearGestureService extends Service
 
     private void detach() {
         mHandler.removeCallbacks(mHold);
+        mHandler.removeCallbacks(mRetry);
         if (mReceiver != null) {
             mReceiver.dispose();
             mReceiver = null;
@@ -177,6 +196,12 @@ public class RearGestureService extends Service
 
     @Override
     public void onDisplayAdded(int displayId) {
+        // enabled again (the id may stay the same): the old monitor is gone with the old
+        // display content even though its channel still looks fine
+        if (displayId == mDisplayId || displayId == RearDisplays.findId(this)) {
+            detach();
+            mRetries = 0;
+        }
         attach();
     }
 
@@ -204,6 +229,7 @@ public class RearGestureService extends Service
         String action = mCfg.get(key);
         int id = mDisplayId;
         if (id != Display.INVALID_DISPLAY && !RearKeys.ACT_NONE.equals(action)) {
+            Log.d(TAG, "gesture " + key + ": " + action + " on display " + id);
             if (mCfg.bool(RearKeys.GESTURE_HAPTIC)) haptic();
             RearActions.run(this, action, id);
         }

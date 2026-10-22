@@ -1,5 +1,8 @@
 package org.titan2.parts;
 
+import android.app.ActivityTaskManager;
+import android.app.IActivityTaskManager;
+import android.app.WindowConfiguration;
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -240,6 +243,58 @@ final class RearDisplay {
         context.getSystemService(PowerManager.class).goToSleep(displayId,
                 SystemClock.uptimeMillis(), PowerManager.GO_TO_SLEEP_REASON_APPLICATION,
                 PowerManager.GO_TO_SLEEP_FLAG_NO_DOZE);
+    }
+
+    /** How long closeApps waits for the closed tasks to leave the display. */
+    private static final long CLOSE_WAIT_MS = 1000;
+
+    /**
+     * Closes the apps on the rear display before it is turned off: the system would move them
+     * to the main display otherwise. Home tasks (the shell) stay; the system finishes those
+     * itself. Removing a task is what swiping it away in the recents does. Waits (briefly)
+     * until the tasks are gone; an app that does not confirm in time (a frozen cached process)
+     * leaves an already destroyed, invisible task that the system drops after its timeout.
+     */
+    static void closeApps(int displayId) {
+        final IActivityTaskManager atm = ActivityTaskManager.getService();
+        final long token = Binder.clearCallingIdentity();
+        try {
+            boolean any = false;
+            for (ActivityTaskManager.RootTaskInfo r : atm.getAllRootTaskInfosOnDisplay(displayId)) {
+                if (!closable(r)) {
+                    continue;
+                }
+                int[] ids = r.childTaskIds != null && r.childTaskIds.length > 0
+                        ? r.childTaskIds : new int[] {r.taskId};
+                for (int id : ids) {
+                    Log.i(TAG, "closing task " + id + " (" + r.baseActivity + ") on display "
+                            + displayId);
+                    atm.removeTask(id);
+                    any = true;
+                }
+            }
+            final long deadline = SystemClock.uptimeMillis() + CLOSE_WAIT_MS;
+            while (any && SystemClock.uptimeMillis() < deadline) {
+                any = false;
+                for (ActivityTaskManager.RootTaskInfo r
+                        : atm.getAllRootTaskInfosOnDisplay(displayId)) {
+                    any |= closable(r);
+                }
+                if (any) SystemClock.sleep(50);
+            }
+            if (any) Log.i(TAG, "closed tasks still finishing on display " + displayId);
+        } catch (Exception e) {
+            Log.w(TAG, "closing the apps on display " + displayId, e);
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    private static boolean closable(ActivityTaskManager.RootTaskInfo r) {
+        final int type = r.getActivityType();
+        return type != WindowConfiguration.ACTIVITY_TYPE_HOME
+                && type != WindowConfiguration.ACTIVITY_TYPE_RECENTS
+                && type != WindowConfiguration.ACTIVITY_TYPE_DREAM;
     }
 
     static boolean isAwake(Context context, int displayId) {
