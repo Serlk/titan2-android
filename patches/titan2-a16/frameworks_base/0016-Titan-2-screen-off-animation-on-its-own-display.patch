@@ -1,0 +1,46 @@
+From 7bdc3d5a8892bce8822216f2930a9ae887780555 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 14:42:06 +0300
+Subject: [PATCH] Titan 2: screen-off animation on its own display
+
+DisplayPowerState created the ColorFade/ElectronBeam screen-off animator
+for DEFAULT_DISPLAY whatever display it controls, and before its display
+id was set. With a second built-in display (the rear screen) its fade-out
+drew a full-screen black layer over the main display that stayed until
+the rear screen woke again.
+---
+ .../java/com/android/server/display/DisplayPowerState.java | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/services/core/java/com/android/server/display/DisplayPowerState.java b/services/core/java/com/android/server/display/DisplayPowerState.java
+index 26d8492fb..acd8f0b5a 100644
+--- a/services/core/java/com/android/server/display/DisplayPowerState.java
++++ b/services/core/java/com/android/server/display/DisplayPowerState.java
+@@ -95,10 +95,11 @@ final class DisplayPowerState {
+         mHandler = new Handler(true /*async*/);
+         mChoreographer = Choreographer.getInstance();
+         mBlanker = blanker;
++        // the screen-off animation is drawn on this display: set the id first
++        mDisplayId = displayId;
+         setScreenStateAnimator(screenAnimatorMode);
+         mPhotonicModulator = new PhotonicModulator();
+         mPhotonicModulator.start();
+-        mDisplayId = displayId;
+         mAsyncDestroyExecutor = asyncDestroyExecutor;
+ 
+         // At boot time, we don't know the screen's brightness,
+@@ -122,9 +123,9 @@ final class DisplayPowerState {
+             mColorFade.dismiss();
+         }
+         if (mode == DisplayPowerController.SCREEN_OFF_FADE) {
+-            mColorFade = new ColorFade(Display.DEFAULT_DISPLAY);
++            mColorFade = new ColorFade(mDisplayId);
+         } else {
+-            mColorFade = new ElectronBeam(Display.DEFAULT_DISPLAY);
++            mColorFade = new ElectronBeam(mDisplayId);
+         }
+     }
+ 
+-- 
+2.56.0
+

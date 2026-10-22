@@ -1,11 +1,11 @@
-# work directories (created by the scripts)
-/android/
-/src/
-/toolchains/
-/out/
-/downloads/
-/secrets/
-/tools/
+# work directories and links to them (created by the scripts)
+/android
+/src
+/toolchains
+/out
+/downloads
+/secrets
+/tools
 # external and proprietary files (scripts/prepare-vendor-titan2.sh)
 vendor-titan2/Plektra/*.apk
 vendor-titan2/MtkCamera/*.apk

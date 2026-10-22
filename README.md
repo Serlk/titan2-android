@@ -24,6 +24,7 @@ plus a hardware support layer:
 |---|---|
 | **Settings → Titan 2** (`vendor-titan2/Titan2Parts`) | keyboard (Sym/Fn/Alt/Shift, letter shortcuts, presets), side keys (short/long/double press), touchpad (per-app scroll and cursor helpers), keyboard backlight, charge limit and battery health, 5 GHz hotspot, TCP BBR, per-app firewall, USB while locked, CPU profile |
 | Display | the square 1440×1440 screen at low density uses phone layouts (`smallestScreenWidthDp` is capped at 599 dp; launcher/SystemUI/Settings follow it) |
+| Rear screen (beta, `vendor-titan2/RearShell`) | a shell for the 410×502 rear display with its own sleep timeout, gestures, unlock from the rear screen, double-tap and face-down wake, JSON themes; system bars there are optional |
 | App sandbox | an isolated app cannot see the list of installed apps, VPNs and their interfaces, and, as chosen, contacts/files/location |
 | Kernel (`patches/kernel`) | NothingOSS GKI 6.1 (MT6878) + KernelSU, EVDI (Lindroid virtual display), SysV IPC with the KMI preserved, Mali in a PID namespace, TCP BBR; stock modules load unchanged |
 | Modem (`modem/`) | free in-kernel MediaTek CCCI modem stack: open, cleaned up for MT6878 (−13,500 lines), tested with calls, SMS and mobile data; optional install into `vendor_dlkm` — [modem/README.md](modem/README.md) |
@@ -37,8 +38,9 @@ plus a hardware support layer:
   crDroid camera (Aperture) with limited features. If you build the image yourself, you can
   include the stock camera from your own firmware (see [BUILD.md](docs/BUILD.md)).
 - **GApps** are not in the prebuilt image — see [GAPPS.md](docs/GAPPS.md).
-- **Rear screen** does not work yet: on the GSI it cannot be enabled without freezing the main
-  screen (being investigated).
+- **Rear screen** is in beta: its own shell (clock, apps, notifications, gestures, unlock with
+  PIN/pattern, wake by double tap or by turning the phone face down, themes). Off by default,
+  enabled in Settings → Titan 2 → Rear screen.
 - The panel runs at 60 Hz; the display engine (MiraVision) is disabled.
 
 ## Repository layout
