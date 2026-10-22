@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+# MTK CCCI modem stack for the Unihertz Titan 2 (MT6878), built as modules only.
+# The MTK headers (DEVICE_MODULES_PATH = kernel_device_modules-6.1) come before
+# the kernel headers, as in kernel_device_modules-6.1/Kbuild.
+LINUXINCLUDE := -I$(DEVICE_MODULES_PATH)/include -I$(DEVICE_MODULES_PATH)/include/uapi $(LINUXINCLUDE)
+
+subdir-ccflags-y += -I$(src)/include
+
+obj-m += ccci_util/ eccci/ ccmni/ mddp/

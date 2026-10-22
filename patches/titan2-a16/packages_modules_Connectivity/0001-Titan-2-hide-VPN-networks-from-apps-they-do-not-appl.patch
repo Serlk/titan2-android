@@ -1,0 +1,124 @@
+From cad5a5b209f9b2a05862deaf768d4549bbef7a85 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 21:08:22 +0300
+Subject: [PATCH] Titan 2: hide VPN networks from apps they do not apply to
+
+An app excluded from a VPN (e.g. isolated in AxSandbox) does not get the
+VPN from getAllNetworks, getNetworkCapabilities, getLinkProperties,
+getNetworkInfo(TYPE_VPN) or getNetworkForType. The system, holders of
+NETWORK_SETTINGS/NETWORK_STACK and the VPN owner still see it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../android/server/ConnectivityService.java   | 60 +++++++++++++++++--
+ 1 file changed, 54 insertions(+), 6 deletions(-)
+
+diff --git a/service/src/com/android/server/ConnectivityService.java b/service/src/com/android/server/ConnectivityService.java
+index d1c62dc..70320df 100644
+--- a/service/src/com/android/server/ConnectivityService.java
++++ b/service/src/com/android/server/ConnectivityService.java
+@@ -3185,6 +3185,10 @@ public class ConnectivityService extends IConnectivityManager.Stub
+     public NetworkInfo getNetworkInfo(int networkType) {
+         enforceAccessPermission();
+         final int uid = mDeps.getCallingUid();
++        if (networkType == ConnectivityManager.TYPE_VPN && isVpnHiddenFromCaller(
++                mLegacyTypeTracker.getNetworkForType(networkType), getCallingPid(), uid)) {
++            return null;
++        }
+         if (getVpnUnderlyingNetworks(uid) != null) {
+             // A VPN is active, so we may need to return one of its underlying networks. This
+             // information is not available in LegacyTypeTracker, so we have to get it from
+@@ -3234,7 +3238,8 @@ public class ConnectivityService extends IConnectivityManager.Stub
+             return null;
+         }
+         final int uid = mDeps.getCallingUid();
+-        if (isNetworkWithCapabilitiesBlocked(nai.networkCapabilities, uid, false)) {
++        if (isNetworkWithCapabilitiesBlocked(nai.networkCapabilities, uid, false)
++                || isVpnHiddenFromCaller(nai, getCallingPid(), uid)) {
+             return null;
+         }
+         return nai.network;
+@@ -3244,15 +3249,50 @@ public class ConnectivityService extends IConnectivityManager.Stub
+     @NonNull
+     public Network[] getAllNetworks() {
+         enforceAccessPermission();
++        final int uid = mDeps.getCallingUid();
++        // the permission check is done once, outside the lock
++        final boolean seesAllVpns = canSeeAllVpns(getCallingPid(), uid);
+         synchronized (mNetworkForNetId) {
+-            final Network[] result = new Network[mNetworkForNetId.size()];
++            final ArrayList<Network> result = new ArrayList<>(mNetworkForNetId.size());
+             for (int i = 0; i < mNetworkForNetId.size(); i++) {
+-                result[i] = mNetworkForNetId.valueAt(i).network;
++                final NetworkAgentInfo nai = mNetworkForNetId.valueAt(i);
++                if (seesAllVpns || !isVpnNotForUid(nai, uid)) {
++                    result.add(nai.network);
++                }
+             }
+-            return result;
++            return result.toArray(new Network[0]);
+         }
+     }
+ 
++    /**
++     * Titan 2: a VPN that does not apply to an app (the app is excluded from it, e.g. isolated
++     * in AxSandbox) is invisible to that app, so it cannot tell that a VPN is up. The system,
++     * network settings and the VPN's owner still see it.
++     */
++    private boolean isVpnHiddenFromCaller(@Nullable NetworkAgentInfo nai, int pid, int uid) {
++        return isVpnNotForUid(nai, uid) && !canSeeAllVpns(pid, uid);
++    }
++
++    /** Whether nai is a VPN that an app uid is excluded from and does not own. */
++    private static boolean isVpnNotForUid(@Nullable NetworkAgentInfo nai, int uid) {
++        if (nai == null || !nai.isVPN()
++                || UserHandle.getAppId(uid) < Process.FIRST_APPLICATION_UID) {
++            return false;
++        }
++        synchronized (nai) {
++            return !nai.networkCapabilities.appliesToUid(uid)
++                    && nai.networkCapabilities.getOwnerUid() != uid;
++        }
++    }
++
++    private boolean canSeeAllVpns(int pid, int uid) {
++        return UserHandle.getAppId(uid) < Process.FIRST_APPLICATION_UID
++                || hasAnyPermissionOf(mContext, pid, uid,
++                        android.Manifest.permission.NETWORK_SETTINGS,
++                        android.Manifest.permission.NETWORK_STACK,
++                        NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK);
++    }
++
+     @Override
+     public NetworkCapabilities[] getDefaultNetworkCapabilitiesForUser(
+                 int userId, String callingPackageName, @Nullable String callingAttributionTag) {
+@@ -3463,7 +3503,11 @@ public class ConnectivityService extends IConnectivityManager.Stub
+     @Override
+     public LinkProperties getLinkProperties(Network network) {
+         enforceAccessPermission();
+-        final LinkProperties lp = getLinkProperties(getNetworkAgentInfoForNetwork(network));
++        final NetworkAgentInfo nai = getNetworkAgentInfoForNetwork(network);
++        if (isVpnHiddenFromCaller(nai, Binder.getCallingPid(), mDeps.getCallingUid())) {
++            return null;
++        }
++        final LinkProperties lp = getLinkProperties(nai);
+         if (lp == null) return null;
+         return linkPropertiesRestrictedForCallerPermissions(
+                 lp, Binder.getCallingPid(), mDeps.getCallingUid());
+@@ -3508,8 +3552,12 @@ public class ConnectivityService extends IConnectivityManager.Stub
+             @Nullable String callingAttributionTag) {
+         mAppOpsManager.checkPackage(mDeps.getCallingUid(), callingPackageName);
+         enforceAccessPermission();
++        final NetworkAgentInfo nai = getNetworkAgentInfoForNetwork(network);
++        if (isVpnHiddenFromCaller(nai, getCallingPid(), mDeps.getCallingUid())) {
++            return null;
++        }
+         return createWithSensitiveInfoSanitizedIfNecessaryWhenParceled(
+-                getNetworkCapabilitiesInternal(network),
++                getNetworkCapabilitiesInternal(nai),
+                 false /* includeLocationSensitiveInfo */,
+                 getCallingPid(), mDeps.getCallingUid(), callingPackageName, callingAttributionTag);
+     }
+-- 
+2.56.0
+

@@ -1,0 +1,28 @@
+# Titan2Parts (system_app): charge limit via /proc/mtk_battery_cmd/current_cmd
+# ("0 1": do not charge, "0 0": charge). titan2-on-boot.sh makes system the owner.
+type titan2_charge_ctl, fs_type, proc_type;
+allow system_app titan2_charge_ctl:file rw_file_perms;
+
+# titan2-bootconsole (phhsu_daemon, like the TrebleDroid scripts): SurfaceFlinger calls back into our process
+# (buffer callbacks) and receives the descriptors of our buffers
+binder_call(surfaceflinger, phhsu_daemon)
+allow surfaceflinger phhsu_daemon:fd use;
+
+# "Keyboard gestures": wake with the Alt key (aw9523_key A16, wake_up_enable)
+type titan2_kbd_wake, fs_type, sysfs_type;
+allow system_app titan2_kbd_wake:file rw_file_perms;
+# chown/chmod in titan2-parts.rc (on boot): init has no setattr on arbitrary sysfs types
+allow init titan2_kbd_wake:file setattr;
+
+# plektra-linux in the Lindroid container (container processes are in the perspectived domain) reports
+# the keyboard state (sys.titan2.lindroid.kbd) and the touchpad grab (sys.titan2.lindroid.touchpad),
+# reads sys.titan2.focus; TouchpadController/KeyboardLight (system_server) read them
+type titan2_lindroid_prop, property_type;
+set_prop(perspectived, titan2_lindroid_prop)
+get_prop(perspectived, system_prop)
+get_prop(system_server, titan2_lindroid_prop)
+
+# Keyboard backlight: init writes the level on sys.titan2.kbd_light (titan2-parts.rc). Without its own
+# label the node is generic sysfs, and init may not write it.
+type titan2_kbd_light, fs_type, sysfs_type;
+allow init titan2_kbd_light:file w_file_perms;

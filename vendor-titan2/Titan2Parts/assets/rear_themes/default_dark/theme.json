@@ -1,0 +1,17 @@
+{
+  "schema": 2,
+  "name": "Default dark",
+  "author": "Titan 2",
+  "description": "Black background, light-blue accent, thin digits",
+  "colors": {
+    "background": "#000000",
+    "onSurface": "#FFFFFF",
+    "onSurfaceVariant": "#9E9E9E",
+    "primary": "#4FC3F7",
+    "onPrimary": "#00131D"
+  },
+  "typography": { "font": "sans-serif-light" },
+  "clock": { "face": "digital", "seconds": false, "24h": "system", "date": true,
+             "dateFormat": "EEE d MMM", "battery": true, "notifications": true },
+  "layout": { "columns": 3, "rows": 3, "iconShape": "none", "iconStyle": "color", "labels": true }
+}

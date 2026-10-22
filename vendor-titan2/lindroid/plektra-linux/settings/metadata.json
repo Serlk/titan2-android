@@ -1,0 +1,22 @@
+{
+    "KPlugin": {
+        "Id": "org.plektra.settings",
+        "Name": "Plektra (Titan 2 keyboard)",
+        "Name[ru]": "Plektra (клавиатура Titan 2)",
+        "Description": "Hardware keyboard settings like Plektra",
+        "Description[ru]": "Настройки аппаратной клавиатуры как в Plektra",
+        "Icon": "input-keyboard",
+        "Authors": [
+            {
+                "Name": "serlk"
+            }
+        ],
+        "License": "GPL-3.0-or-later",
+        "Version": "1.0",
+        "Website": "https://github.com/pkb-rocks/plektra"
+    },
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-NotificationArea": "false",
+    "NoDisplay": true
+}

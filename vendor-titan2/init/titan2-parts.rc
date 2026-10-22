@@ -1,0 +1,50 @@
+# Titan2Parts: TCP algorithm (Settings -> Network). The app (uid system) sets the property,
+# init writes it: system_app has no access to /proc/sys/net. BBR exists only in our kernel (boot_a).
+on property:persist.sys.titan2.tcp_cc=bbr
+    write /proc/sys/net/ipv4/tcp_congestion_control bbr
+
+on property:persist.sys.titan2.tcp_cc=cubic
+    write /proc/sys/net/ipv4/tcp_congestion_control cubic
+
+# CPU profile and I/O scheduler (titan2-perf.sh): the app sets the property, init applies it
+on property:persist.sys.titan2.cpu_profile=*
+    exec_background u:r:phhsu_daemon:s0 root -- /system/bin/sh /system/etc/titan2/titan2-perf.sh cpu ${persist.sys.titan2.cpu_profile}
+
+on property:persist.sys.titan2.io_sched=*
+    exec_background u:r:phhsu_daemon:s0 root -- /system/bin/sh /system/etc/titan2/titan2-perf.sh io ${persist.sys.titan2.io_sched}
+
+# Boot log (titan2-bootlog.sh): a flag in /metadata, the log itself from the very start of boot
+service titan2bootlog /system/bin/sh /system/etc/titan2/titan2-bootlog.sh
+    user root
+    group root log
+    seclabel u:r:phhsu_daemon:s0
+    disabled
+    oneshot
+
+on init
+    start titan2bootlog
+
+on property:persist.sys.titan2.bootlog=1
+    exec_background u:r:phhsu_daemon:s0 root -- /system/bin/sh /system/etc/titan2/titan2-bootlog.sh on
+
+on property:persist.sys.titan2.bootlog=0
+    exec_background u:r:phhsu_daemon:s0 root -- /system/bin/sh /system/etc/titan2/titan2-bootlog.sh off
+
+# Verbose boot (titan2-bootconsole): kernel text and logcat over the animation until boot_completed
+service titan2bootconsole /system_ext/bin/titan2-bootconsole
+    user root
+    group root graphics log
+    disabled
+    oneshot
+
+on property:persist.sys.titan2.verbose_boot=1 && property:init.svc.surfaceflinger=running
+    start titan2bootconsole
+
+# Keyboard backlight (KeyboardLight in system_server): level 0..100, keypad_led is not an LED class
+on property:sys.titan2.kbd_light=*
+    write /sys/devices/platform/keypad_led/keyled_brightness ${sys.titan2.kbd_light}
+
+# "Keyboard gestures" -> wake with the Alt key (Titan2Parts, system_app)
+on boot
+    chown system system /sys/devices/platform/soc/11e01000.i2c/i2c-6/6-0058/wake_up_enable
+    chmod 0664 /sys/devices/platform/soc/11e01000.i2c/i2c-6/6-0058/wake_up_enable

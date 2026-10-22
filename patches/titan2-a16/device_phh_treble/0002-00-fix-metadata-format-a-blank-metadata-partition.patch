@@ -1,0 +1,60 @@
+From 555f4fbf2eda8e5b007588f52affc7b9f4854ff8 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 01:16:44 +0300
+Subject: [PATCH] 00-fix-metadata: format a blank metadata partition instead of
+ using tmpfs
+
+fastboot -w in fastbootd erases metadata without formatting it. With tmpfs on /metadata
+vold keeps the /data metadata-encryption key in RAM, so only the first boot works and
+every later boot fails to decrypt /data (Unihertz Titan 2, MT6878).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ 00-fix-metadata.sh | 35 ++++++++++++++++++++++++++++++-----
+ 1 file changed, 30 insertions(+), 5 deletions(-)
+
+diff --git a/00-fix-metadata.sh b/00-fix-metadata.sh
+index 40e4616..680d14f 100644
+--- a/00-fix-metadata.sh
++++ b/00-fix-metadata.sh
+@@ -1,7 +1,32 @@
+ #!/system/bin/sh
+-# If no real metadata partition was mounted by first-stage init,
+-# overlay the empty rootfs stub with tmpfs so aconfigd and other
+-# services that write to /metadata can function.
++# First-stage init did not mount /metadata. Two cases:
++#
++# 1. The device has a metadata partition, but it is blank. `fastboot -w` in fastbootd erases
++#    userdata and metadata without formatting them. vold would then keep the /data encryption key
++#    on tmpfs: the first boot works and every later boot fails to decrypt /data ("Can't load Android
++#    system"). Format it and mount it. Only a partition without an f2fs or ext4 superblock is
++#    formatted, so a real filesystem that failed to mount for another reason is never overwritten.
++#
++# 2. No metadata partition at all (pre-Q devices): overlay the empty rootfs stub with tmpfs so
++#    aconfigd and other services that write to /metadata can function.
+ 
+-mountpoint -q /metadata || \
+-    mount -t tmpfs tmpfs /metadata -o mode=0775,uid=0,gid=1000
++mountpoint -q /metadata && exit 0
++
++dev=/dev/block/by-name/metadata
++if [ -b "$dev" ]; then
++    f2fs=$(dd if=$dev bs=1 skip=1024 count=4 2>/dev/null | od -An -tx1 | tr -d ' \n')
++    ext4=$(dd if=$dev bs=1 skip=1080 count=2 2>/dev/null | od -An -tx1 | tr -d ' \n')
++    # both reads must succeed: an empty result is a read error, not a blank partition
++    if [ ${#f2fs} -eq 8 ] && [ ${#ext4} -eq 4 ] &&
++        [ "$f2fs" != "1020f5f2" ] && [ "$ext4" != "53ef" ]; then
++        log -t fix-metadata "blank $dev, formatting f2fs"
++        if /system/bin/make_f2fs -g android "$dev" &&
++            mount -t f2fs -o noatime,nosuid,nodev,discard "$dev" /metadata; then
++            restorecon -R /metadata
++            exit 0
++        fi
++        log -t fix-metadata "formatting $dev failed, falling back to tmpfs"
++    fi
++fi
++
++mount -t tmpfs tmpfs /metadata -o mode=0775,uid=0,gid=1000
+-- 
+2.56.0
+

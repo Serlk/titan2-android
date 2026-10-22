@@ -1,0 +1,50 @@
+// Titan2Parts: the Titan 2 extra-key handler (DeviceKeyHandler, loaded into system_server from
+// this APK via the lineage-sdk config_deviceKeyHandlerLibs) + the "Titan 2" section in Settings.
+android_app {
+    name: "Titan2Parts",
+    srcs: [
+        "src/**/*.java",
+        // IRemoteRecording/IRecordingCallback from the crDroid SystemUI: screen recording from a key
+        "src/**/*.aidl",
+    ],
+    aidl: {
+        local_include_dirs: ["src"],
+    },
+    resource_dirs: ["res"],
+    // built-in rear screen themes (rear_themes/<name>/theme.json)
+    asset_dirs: ["assets"],
+    static_libs: [
+        // shared with RearShell: keys, provider contract, theme schema, clock faces (preview)
+        "titan2-rear-common",
+        // QR code on the rear screen
+        "zxing-core",
+        // settings screens in the Settings style (collapsing toolbar, Material 3 cards)
+        "androidx.preference_preference",
+        "SettingsLib",
+        "SettingsLibSettingsTheme",
+        // Unihertz agolddaemon: rear screen backlight flag and double tap (RearDisplay)
+        "vendor.mediatek.hardware.agolddaemon-V1-java",
+    ],
+    certificate: "platform",
+    platform_apis: true,
+    privileged: true,
+    system_ext_specific: true,
+    // the APK path is hardcoded in config_deviceKeyHandlerLibs; the dex must be inside the APK
+    dex_preopt: {
+        enabled: false,
+    },
+    optimize: {
+        enabled: false,
+    },
+    // touchpad virtual mouse; loaded into system_server by absolute path (VirtualMouse)
+    required: ["libtitan2_uinput"],
+}
+
+cc_library_shared {
+    name: "libtitan2_uinput",
+    srcs: ["jni/titan2_uinput.c"],
+    header_libs: ["jni_headers"],
+    system_ext_specific: true,
+    cflags: ["-Wall", "-Werror"],
+    compile_multilib: "64",
+}

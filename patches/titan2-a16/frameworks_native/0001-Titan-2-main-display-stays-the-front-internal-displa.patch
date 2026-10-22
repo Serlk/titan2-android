@@ -1,0 +1,36 @@
+From c5f0237a4c30d1e44fc5d6a1f006d1569e669f5b Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 01:16:34 +0300
+Subject: [PATCH] Titan 2: main display stays the front internal display
+
+The rear screen is not a foldable panel: when the main display (primary HWC) powers on it
+becomes front again, otherwise it would keep running on the rear display's vsync and rate.
+Only when ro.titan2.rear_display_port is set; other devices keep the AOSP behaviour.
+---
+ services/surfaceflinger/SurfaceFlinger.cpp | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/services/surfaceflinger/SurfaceFlinger.cpp b/services/surfaceflinger/SurfaceFlinger.cpp
+index 54522a9..2f9f3f6 100644
+--- a/services/surfaceflinger/SurfaceFlinger.cpp
++++ b/services/surfaceflinger/SurfaceFlinger.cpp
+@@ -6207,7 +6207,15 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
+         // and `frontInternalDisplay` are the same display, then the
+         // `frontInternalDisplay->isPoweredOn()` below is true, such that the front internal display
+         // is not detected every time it is powered on.
+-        if (isInternalDisplay && (!frontInternalDisplay || !frontInternalDisplay->isPoweredOn())) {
++        // Titan 2: the rear screen is not a foldable; the main display (primary HWC) becomes
++        // front again when powered on, otherwise it would run on the rear's vsync and rate.
++        // Only with the rear display configured: foldables keep the AOSP behaviour.
++        static const bool kPrimaryStaysFront =
++                base::GetIntProperty("ro.titan2.rear_display_port"s, -1) >= 0;
++        if (isInternalDisplay &&
++            (!frontInternalDisplay || !frontInternalDisplay->isPoweredOn() ||
++             (kPrimaryStaysFront && displayId == getPrimaryDisplayIdLocked() &&
++              frontInternalDisplay->getPhysicalId() != displayId))) {
+             onNewFrontInternalDisplay(frontInternalDisplay.get(), *display);
+         }
+ 
+-- 
+2.56.0
+

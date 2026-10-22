@@ -1,0 +1,60 @@
+From 991dccdb082c7f97b43722c71f60bd2e7fe4cadb Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 02:34:15 +0300
+Subject: [PATCH] ColorMode: hide the display engine when
+ ro.sys.display_engine.disabled is set
+
+The MediaTek HWC on the Unihertz Titan 2 renders the engine's color matrix as a white screen.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../display/ColorModePreferenceFragment.java       | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/src/com/android/settings/display/ColorModePreferenceFragment.java b/src/com/android/settings/display/ColorModePreferenceFragment.java
+index 3119ab0..93863ed 100644
+--- a/src/com/android/settings/display/ColorModePreferenceFragment.java
++++ b/src/com/android/settings/display/ColorModePreferenceFragment.java
+@@ -29,6 +29,7 @@ import android.graphics.drawable.Drawable;
+ import android.hardware.display.ColorDisplayManager;
+ import android.net.Uri;
+ import android.os.Bundle;
++import android.os.SystemProperties;
+ import android.os.Handler;
+ import android.os.Looper;
+ import android.provider.SearchIndexableResource;
+@@ -205,12 +206,21 @@ public class ColorModePreferenceFragment extends RadioButtonPickerFragment {
+ 
+     private static final String KEY_DISPLAY_ENGINE_CATEGORY = "display_engine_category";
+ 
++    /**
++     * Some HWCs (MediaTek on the Unihertz Titan 2) apply the engine's color matrix wrongly and the
++     * screen turns white; such builds set ro.sys.display_engine.disabled=true.
++     */
++    private static boolean isDisplayEngineSupported(Context context) {
++        return ColorDisplayManager.isColorTransformAccelerated(context)
++                && !SystemProperties.getBoolean("ro.sys.display_engine.disabled", false);
++    }
++
+     @Override
+     public void updateCandidates() {
+         super.updateCandidates();
+ 
+         PreferenceScreen screen = getPreferenceScreen();
+-        if (ColorDisplayManager.isColorTransformAccelerated(screen.getContext())
++        if (isDisplayEngineSupported(screen.getContext())
+                 && screen.findPreference(KEY_DISPLAY_ENGINE_CATEGORY) == null) {
+             getPreferenceManager().inflateFromResource(
+                     screen.getContext(), R.xml.display_engine_settings, screen);
+@@ -417,7 +427,7 @@ public class ColorModePreferenceFragment extends RadioButtonPickerFragment {
+                     final SearchIndexableResource colorModeXml = new SearchIndexableResource(context);
+                     colorModeXml.xmlResId = R.xml.color_mode_settings;
+                     resources.add(colorModeXml);
+-                    if (ColorDisplayManager.isColorTransformAccelerated(context)) {
++                    if (isDisplayEngineSupported(context)) {
+                         final SearchIndexableResource displayEngineXml =
+                                 new SearchIndexableResource(context);
+                         displayEngineXml.xmlResId = R.xml.display_engine_settings;
+-- 
+2.56.0
+

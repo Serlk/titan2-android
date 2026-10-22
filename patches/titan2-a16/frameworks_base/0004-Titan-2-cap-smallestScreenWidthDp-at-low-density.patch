@@ -1,0 +1,80 @@
+From 35c595d51141f7aa5abd53a929f18a7138e3e99d Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 17:00:03 +0300
+Subject: [PATCH] Titan 2: cap smallestScreenWidthDp at low density
+
+The square 1440x1440 panel is used at ~250dpi (about 900dp), which turns
+the shade, launcher, Settings and apps into their tablet layouts. When
+persist.sys.titan2.max_sw_dp is set, cap the default display's
+smallestScreenWidthDp to it so phone resources are used at full width.
+SystemUI's display-based large-screen checks follow the capped value.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../systemui/shared/recents/utilities/Utilities.java     | 5 ++++-
+ .../display/data/repository/DisplayStateRepository.kt    | 5 ++++-
+ .../core/java/com/android/server/wm/DisplayContent.java  | 9 +++++++++
+ 3 files changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/packages/SystemUI/shared/src/com/android/systemui/shared/recents/utilities/Utilities.java b/packages/SystemUI/shared/src/com/android/systemui/shared/recents/utilities/Utilities.java
+index 225b76410..c58120ee4 100644
+--- a/packages/SystemUI/shared/src/com/android/systemui/shared/recents/utilities/Utilities.java
++++ b/packages/SystemUI/shared/src/com/android/systemui/shared/recents/utilities/Utilities.java
+@@ -162,7 +162,10 @@ public class Utilities {
+ 
+         float smallestWidth = dpiFromPx(Math.min(bounds.width(), bounds.height()),
+                 resources.getConfiguration().densityDpi);
+-        return smallestWidth >= TABLET_MIN_DPS;
++        // Titan 2: also honour the framework's capped smallestScreenWidthDp
++        // (persist.sys.titan2.max_sw_dp) so a phone at low density is not treated as a tablet.
++        return smallestWidth >= TABLET_MIN_DPS
++                && resources.getConfiguration().smallestScreenWidthDp >= TABLET_MIN_DPS;
+     }
+ 
+     public static float dpiFromPx(float size, int densityDpi) {
+diff --git a/packages/SystemUI/src/com/android/systemui/display/data/repository/DisplayStateRepository.kt b/packages/SystemUI/src/com/android/systemui/display/data/repository/DisplayStateRepository.kt
+index 0c4936bcb..c4873c59a 100644
+--- a/packages/SystemUI/src/com/android/systemui/display/data/repository/DisplayStateRepository.kt
++++ b/packages/SystemUI/src/com/android/systemui/display/data/repository/DisplayStateRepository.kt
+@@ -134,7 +134,10 @@ constructor(
+                 currentDisplayInfo.map {
+                     // copied from systemui/shared/...Utilities.java
+                     val smallestWidth = min(it.logicalWidth, it.logicalHeight).toDpi()
+-                    smallestWidth >= LARGE_SCREEN_MIN_DPS
++                    // Titan 2: honour the framework's capped smallestScreenWidthDp.
++                    smallestWidth >= LARGE_SCREEN_MIN_DPS &&
++                        context.resources.configuration.smallestScreenWidthDp >=
++                            LARGE_SCREEN_MIN_DPS
+                 }
+             }
+             .stateIn(bgDisplayScope, started = SharingStarted.Eagerly, initialValue = false)
+diff --git a/services/core/java/com/android/server/wm/DisplayContent.java b/services/core/java/com/android/server/wm/DisplayContent.java
+index aa6d08461..49709808b 100644
+--- a/services/core/java/com/android/server/wm/DisplayContent.java
++++ b/services/core/java/com/android/server/wm/DisplayContent.java
+@@ -197,6 +197,7 @@ import android.os.Message;
+ import android.os.PowerManager;
+ import android.os.RemoteCallbackList;
+ import android.os.RemoteException;
++import android.os.SystemProperties;
+ import android.os.Trace;
+ import android.os.UserHandle;
+ import android.os.UserManager;
+@@ -2732,6 +2733,14 @@ class DisplayContent extends RootDisplayArea implements WindowManagerPolicy.Disp
+         }
+         outConfig.smallestScreenWidthDp =
+                 (int) (displayInfo.smallestNominalAppWidth / density + 0.5f);
++        // Titan 2: the square 1440x1440 panel is used at low density (~900dp) for more content,
++        // which would turn every app into its tablet layout. Cap the smallest width so apps keep
++        // phone resources while still getting the full screen width.
++        final int maxSmallestWidthDp = SystemProperties.getInt("persist.sys.titan2.max_sw_dp", 0);
++        if (isDefaultDisplay && maxSmallestWidthDp > 0
++                && outConfig.smallestScreenWidthDp > maxSmallestWidthDp) {
++            outConfig.smallestScreenWidthDp = maxSmallestWidthDp;
++        }
+     }
+ 
+     private void adjustDisplaySizeRanges(DisplayInfo displayInfo, int rotation, int dw, int dh,
+-- 
+2.56.0
+

@@ -1,0 +1,8 @@
+#!/bin/sh
+# OpenGL on the GPU: Mesa Zink over Vulkan Mali (hybris). The ARM driver gives Zink only GL 3.1.
+#   zink-run program [arguments]
+export __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json
+export __GLX_VENDOR_LIBRARY_NAME=mesa
+export MESA_LOADER_DRIVER_OVERRIDE=zink
+export GALLIUM_DRIVER=zink
+exec "$@"

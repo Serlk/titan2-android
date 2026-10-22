@@ -1,0 +1,33 @@
+From 7fdf5fccc68a7559e0b68a79e7f08193f95c3b17 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 10:36:56 +0300
+Subject: [PATCH] titan2-on-boot: the rear screen is managed by Titan2Parts
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ titan2-on-boot.sh | 12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
+
+diff --git a/titan2-on-boot.sh b/titan2-on-boot.sh
+index 6ff74e2..06919c9 100755
+--- a/titan2-on-boot.sh
++++ b/titan2-on-boot.sh
+@@ -20,12 +20,6 @@ setprop ctl.restart camerahalserver
+ sleep 8
+ setprop ctl.restart cameraserver
+ 
+-# Rear screen (410x502, DSI-2): off by default, turned on by the Titan2Parts modes (selfie, QR, light). On stock the Agui framework drove its backlight; on the GSI it
+-# stayed on even with the screen off. Turn the backlight off, switch the display off, block touch.
+-bl=/sys/class/leds/lcd-backlight1/brightness
+-echo 0 > $bl; chown system:system $bl; chmod 0644 $bl   # only Titan2Parts (RearService) turns it on
+-id=$(dumpsys display | sed -n 's/.*displayId \([0-9]*\),.* real 410 x 502.*/\1/p' | head -1)
+-[ -n "$id" ] && cmd display disable-display "$id"
+-for d in /sys/class/input/input*; do
+-    [ "$(cat $d/name)" = sub_touch ] && echo 1 > $d/inhibited
+-done
++# The rear screen (410x502, DSI-2) is run by Titan2Parts (RearController, RearService): the panel
++# backlight flag via agolddaemon, display on/off, double tap. Until Titan2Parts starts
++# the backlight flag is 0, so the panel stays dark. Touch is bound to it by sub_touch.idc.
+-- 
+2.56.0
+

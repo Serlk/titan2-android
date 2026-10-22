@@ -1,0 +1,3 @@
+# in a GSI system_ext lives inside system (/system/system_ext); without the second path the file got
+# system_file, and init refused to start the service (no domain transition)
+/(system_ext|system/system_ext)/bin/titan2-bootconsole u:object_r:phhsu_exec:s0

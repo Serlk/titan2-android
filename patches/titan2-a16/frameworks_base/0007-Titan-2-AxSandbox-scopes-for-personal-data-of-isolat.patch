@@ -1,0 +1,130 @@
+From a0538a6c4a21f0551bdc0a18b50009a0959d3fde Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 21:11:20 +0300
+Subject: [PATCH] Titan 2: AxSandbox scopes for personal data of isolated apps
+
+For an app isolated in AxSandbox, contacts/accounts, call log, SMS,
+calendar, location (with Wi-Fi/Bluetooth scans) and photos/files are
+hidden unless allowed per app (titan2_allow_<scope> sandbox keys). The
+permission stays granted; the app op is ignored in every AppOps check,
+so providers return empty results and no location is delivered. Photos
+the user picks through the photo picker still work.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../android/server/appop/AppOpsService.java   | 57 +++++++++++++++++--
+ 1 file changed, 52 insertions(+), 5 deletions(-)
+
+diff --git a/services/core/java/com/android/server/appop/AppOpsService.java b/services/core/java/com/android/server/appop/AppOpsService.java
+index 4d23ad733..f92c71c3a 100644
+--- a/services/core/java/com/android/server/appop/AppOpsService.java
++++ b/services/core/java/com/android/server/appop/AppOpsService.java
+@@ -186,6 +186,7 @@ import com.android.server.pm.PackageList;
+ import com.android.server.pm.PackageManagerLocal;
+ import com.android.server.pm.ProtectedPackages;
+ import com.android.server.pm.UserManagerInternal;
++import com.android.server.wm.AxSandboxService;
+ import com.android.server.pm.pkg.AndroidPackage;
+ import com.android.server.pm.pkg.PackageState;
+ import com.android.server.policy.AppOpsPolicy;
+@@ -2994,6 +2995,47 @@ public class AppOpsService extends IAppOpsService.Stub {
+                 virtualDeviceId, false /*raw*/);
+     }
+ 
++    /**
++     * Titan 2: personal data an app isolated in AxSandbox was not given in Sandbox ("titan2_allow_*"
++     * keys). The permission stays granted but the op is ignored, so providers return empty
++     * results and no location is delivered - the app cannot tell it is restricted.
++     */
++    private static final SparseArray<String> SANDBOX_SCOPED_OPS = new SparseArray<>();
++    static {
++        for (int op : new int[] {AppOpsManager.OP_READ_CONTACTS, AppOpsManager.OP_WRITE_CONTACTS,
++                AppOpsManager.OP_GET_ACCOUNTS}) {
++            SANDBOX_SCOPED_OPS.put(op, "contacts");
++        }
++        SANDBOX_SCOPED_OPS.put(AppOpsManager.OP_READ_CALL_LOG, "call_log");
++        SANDBOX_SCOPED_OPS.put(AppOpsManager.OP_WRITE_CALL_LOG, "call_log");
++        SANDBOX_SCOPED_OPS.put(AppOpsManager.OP_READ_SMS, "sms");
++        SANDBOX_SCOPED_OPS.put(AppOpsManager.OP_READ_CALENDAR, "calendar");
++        SANDBOX_SCOPED_OPS.put(AppOpsManager.OP_WRITE_CALENDAR, "calendar");
++        // Wi-Fi and Bluetooth scans give the location away as well
++        for (int op : new int[] {AppOpsManager.OP_FINE_LOCATION,
++                AppOpsManager.OP_COARSE_LOCATION, AppOpsManager.OP_NEARBY_WIFI_DEVICES,
++                AppOpsManager.OP_BLUETOOTH_SCAN}) {
++            SANDBOX_SCOPED_OPS.put(op, "location");
++        }
++        // photos the user picks (READ_MEDIA_VISUAL_USER_SELECTED, photo picker) still work
++        for (int op : new int[] {AppOpsManager.OP_READ_EXTERNAL_STORAGE,
++                AppOpsManager.OP_READ_MEDIA_IMAGES, AppOpsManager.OP_READ_MEDIA_VIDEO,
++                AppOpsManager.OP_READ_MEDIA_AUDIO, AppOpsManager.OP_MANAGE_EXTERNAL_STORAGE,
++                AppOpsManager.OP_ACCESS_MEDIA_LOCATION}) {
++            SANDBOX_SCOPED_OPS.put(op, "files");
++        }
++    }
++
++    private static boolean isOpHiddenBySandbox(int code, @Nullable String packageName) {
++        final String scope = SANDBOX_SCOPED_OPS.get(code);
++        if (scope == null || packageName == null) {
++            return false;
++        }
++        final AxSandboxService sandbox = AxSandboxService.get();
++        return sandbox.isPackageSandboxed(packageName)
++                && !sandbox.isSpoofSettingEnabled(packageName, "titan2_allow_" + scope);
++    }
++
+     private int checkOperationImpl(int code, int uid, String packageName,
+              @Nullable String attributionTag, int virtualDeviceId, boolean raw) {
+         String resolvedPackageName;
+@@ -3051,7 +3093,8 @@ public class AppOpsService extends IAppOpsService.Stub {
+             return AppOpsManager.opToDefaultMode(code);
+         }
+ 
+-        if (isOpRestrictedDueToSuspend(code, packageName, uid)) {
++        if (isOpRestrictedDueToSuspend(code, packageName, uid)
++                || isOpHiddenBySandbox(code, packageName)) {
+             return AppOpsManager.MODE_IGNORED;
+         }
+         synchronized (this) {
+@@ -3114,7 +3157,8 @@ public class AppOpsService extends IAppOpsService.Stub {
+             return MODE_IGNORED;
+         }
+ 
+-        if (isOpRestrictedDueToSuspend(code, packageName, uid)) {
++        if (isOpRestrictedDueToSuspend(code, packageName, uid)
++                || isOpHiddenBySandbox(code, packageName)) {
+             return MODE_IGNORED;
+         }
+ 
+@@ -3429,7 +3473,8 @@ public class AppOpsService extends IAppOpsService.Stub {
+             return new SyncNotedAppOp(AppOpsManager.MODE_ERRORED, code, attributionTag,
+                     packageName);
+         }
+-        if (isOpRestrictedDueToSuspend(code, packageName, uid)) {
++        if (isOpRestrictedDueToSuspend(code, packageName, uid)
++                || isOpHiddenBySandbox(code, packageName)) {
+             return new SyncNotedAppOp(AppOpsManager.MODE_IGNORED, code, attributionTag,
+                     packageName);
+         }
+@@ -4093,7 +4138,8 @@ public class AppOpsService extends IAppOpsService.Stub {
+             return new SyncNotedAppOp(AppOpsManager.MODE_ERRORED, code, attributionTag,
+                     packageName);
+         }
+-        if (isOpRestrictedDueToSuspend(code, packageName, uid)) {
++        if (isOpRestrictedDueToSuspend(code, packageName, uid)
++                || isOpHiddenBySandbox(code, packageName)) {
+             return new SyncNotedAppOp(AppOpsManager.MODE_IGNORED, code, attributionTag,
+                     packageName);
+         }
+@@ -4237,7 +4283,8 @@ public class AppOpsService extends IAppOpsService.Stub {
+             return new SyncNotedAppOp(AppOpsManager.MODE_ERRORED, code, attributionTag,
+                     packageName);
+         }
+-        if (isOpRestrictedDueToSuspend(code, packageName, uid)) {
++        if (isOpRestrictedDueToSuspend(code, packageName, uid)
++                || isOpHiddenBySandbox(code, packageName)) {
+             return new SyncNotedAppOp(AppOpsManager.MODE_IGNORED, code, attributionTag,
+                     packageName);
+         }
+-- 
+2.56.0
+

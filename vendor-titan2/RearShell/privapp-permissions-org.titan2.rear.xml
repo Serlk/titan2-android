@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RearShell permissions with the signature|privileged level (the rest are granted by the platform signature) -->
+<permissions>
+    <privapp-permissions package="org.titan2.rear">
+        <permission name="android.permission.REAL_GET_TASKS"/>
+        <permission name="android.permission.START_ACTIVITIES_FROM_BACKGROUND"/>
+        <permission name="android.permission.START_TASKS_FROM_RECENTS"/>
+        <permission name="android.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE"/>
+    </privapp-permissions>
+</permissions>

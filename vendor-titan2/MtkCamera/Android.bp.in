@@ -1,0 +1,76 @@
+// Stock MTK camera (com.mediatek.camera) from V01.00.10 Global. The files are put here by scripts/prepare-vendor-titan2.sh.
+// Signed with our platform key: the camera needs signature permissions (INTERACT_ACROSS_USERS_FULL, STATUS_BAR, ...).
+
+android_app_import {
+    name: "MtkCamera",
+    apk: "MtkCamera.apk",
+    certificate: "platform",
+    privileged: true,
+    dex_preopt: {
+        enabled: false,
+    },
+    required: [
+        "privapp-permissions-com.mediatek.camera.xml",
+        "titan2_libjni_custom_isphal_impl",
+        "titan2_libjni_custom_isphal_impl_aidl",
+    ],
+}
+
+prebuilt_etc {
+    name: "privapp-permissions-com.mediatek.camera.xml",
+    src: "privapp-permissions-com.mediatek.camera.xml",
+    sub_dir: "permissions",
+}
+
+// Closed libraries: module names with a prefix, files under the stock names (stem).
+cc_defaults {
+    name: "titan2_camera_blob_defaults",
+    compile_multilib: "64",
+    check_elf_files: false,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "titan2_libjni_custom_isphal_impl",
+    defaults: ["titan2_camera_blob_defaults"],
+    stem: "libjni_custom_isphal_impl",
+    srcs: ["lib64/libjni_custom_isphal_impl.so"],
+    required: [
+        "titan2_isphal_1_0",
+        "titan2_isphal_1_1",
+    ],
+}
+
+cc_prebuilt_library_shared {
+    name: "titan2_libjni_custom_isphal_impl_aidl",
+    defaults: ["titan2_camera_blob_defaults"],
+    stem: "libjni_custom_isphal_impl_aidl",
+    srcs: ["lib64/libjni_custom_isphal_impl_aidl.so"],
+    required: [
+        "titan2_isphal_V1_ndk",
+    ],
+}
+
+cc_prebuilt_library_shared {
+    name: "titan2_isphal_1_0",
+    defaults: ["titan2_camera_blob_defaults"],
+    stem: "vendor.mediatek.hardware.camera.isphal@1.0",
+    srcs: ["lib64/vendor.mediatek.hardware.camera.isphal@1.0.so"],
+}
+
+cc_prebuilt_library_shared {
+    name: "titan2_isphal_1_1",
+    defaults: ["titan2_camera_blob_defaults"],
+    stem: "vendor.mediatek.hardware.camera.isphal@1.1",
+    srcs: ["lib64/vendor.mediatek.hardware.camera.isphal@1.1.so"],
+}
+
+cc_prebuilt_library_shared {
+    name: "titan2_isphal_V1_ndk",
+    defaults: ["titan2_camera_blob_defaults"],
+    stem: "vendor.mediatek.hardware.camera.isphal-V1-ndk",
+    srcs: ["lib64/vendor.mediatek.hardware.camera.isphal-V1-ndk.so"],
+}
+// android.hardware.graphics.common-V5-ndk (needed by isphal-V1-ndk) is already in system in A16.

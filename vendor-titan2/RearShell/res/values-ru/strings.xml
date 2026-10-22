@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rear screen shell strings (Russian); all settings are in Titan2Parts -->
+<resources>
+    <string name="app_name">Задний экран</string>
+    <string name="unlock_hint">Разблокируйте телефон на основном экране</string>
+    <string name="settings_on_main">Настройки открыты на основном экране</string>
+    <string name="fav_added">%1$s: добавлено в избранное</string>
+    <string name="fav_removed">%1$s: убрано из избранного</string>
+    <string name="recents_title">Недавние</string>
+    <string name="recents_empty">На заднем экране нет приложений</string>
+    <string name="qs_torch">Фонарик</string>
+    <string name="qs_wifi">Wi-Fi</string>
+    <string name="qs_dnd">Не беспокоить</string>
+    <string name="qs_ringer">Звук</string>
+    <string name="qs_sleep">Погасить</string>
+    <string name="qs_settings">Настройки</string>
+    <string name="qs_brightness">Яркость</string>
+    <string name="qs_state_on">Включено</string>
+    <string name="qs_state_off">Выключено</string>
+    <string name="unlock_enter">Введите PIN-код</string>
+    <string name="unlock_draw">Нарисуйте графический ключ</string>
+    <string name="unlock_wait">Подождите…</string>
+    <string name="unlock_wrong">Неверно, попробуйте ещё раз</string>
+    <string name="unlock_checking">Проверка…</string>
+    <string name="unlock_lockout">Слишком много попыток. Повторите через %d с</string>
+    <string name="unlock_unlocking">Разблокировка…</string>
+    <string name="unlock_main_screen">Такую блокировку можно снять только на основном экране</string>
+    <string name="unlock_delete">Стереть</string>
+    <string name="unlock_ok">Готово</string>
+</resources>

@@ -1,0 +1,14 @@
+{
+  "schema": 2,
+  "name": "Aurora",
+  "author": "Titan 2",
+  "description": "Example of \"extends\": Default dark with a green-blue gradient and rounded icons",
+  "extends": "builtin:default_dark",
+  "colors": {
+    "primary": "#7CF5C4",
+    "onPrimary": "#002116"
+  },
+  "wallpaper": { "type": "gradient", "gradient": ["#001B2E", "#003A3A", "#0B5D3B"], "angle": 135 },
+  "clock": { "digits": "thin", "size": 0.9 },
+  "layout": { "iconShape": "rounded" }
+}

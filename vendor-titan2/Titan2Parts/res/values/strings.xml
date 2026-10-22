@@ -1,0 +1,616 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Titan 2 parts</string>
+    <string name="keys_title">Programmable keys</string>
+    <string name="keys_summary">Side keys: flashlight, camera, apps</string>
+    <string name="key_func1">Side key 1</string>
+    <string name="key_func2">Side key 2</string>
+    <string name="press_short">Short press</string>
+    <string name="press_long">Long press</string>
+    <string name="press_double">Double press</string>
+    <string name="action_none">No action</string>
+    <string name="action_torch">Flashlight</string>
+    <string name="action_camera">Camera</string>
+    <string name="action_notifications">Notification shade</string>
+    <string name="action_ringer">Sound / vibrate</string>
+    <string name="action_app">Open %1$s</string>
+    <string name="softap_5g_title">Hotspot: 5 GHz</string>
+    <string name="softap_5g_entry_summary">Allow 5 GHz hotspot (Wi-Fi country US)</string>
+    <string name="softap_5g_summary">The MediaTek driver allows only 2.4 GHz hotspot for Russia. When on, the Wi-Fi country code is set to US: 5 GHz channels 36–48 and 149–165 become available. Outside the US this may not comply with local radio regulations.</string>
+    <string name="remap_title">Titan 2 keyboard</string>
+    <string name="remap_summary">Key remapping</string>
+    <string name="remap_note">Works in every app, without the on-screen keyboard. Inside text fields Plektra still handles Sym and Fn itself.</string>
+    <string name="key_sym">Sym</string>
+    <string name="key_fn">Fn</string>
+    <string name="key_alt">Alt</string>
+    <string name="key_shift">Shift</string>
+    <string name="key_back">Back</string>
+    <string name="key_recents">Recent apps</string>
+    <string-array name="remap_targets">
+        <item>Unchanged</item>
+        <item>Ctrl</item>
+        <item>Alt</item>
+        <item>Shift</item>
+        <item>Meta</item>
+        <item>Sym</item>
+        <item>Caps Lock</item>
+        <item>Tab</item>
+        <item>Esc</item>
+        <item>Delete forward</item>
+        <item>Back</item>
+        <item>Home</item>
+        <item>Recent apps</item>
+        <item>Menu</item>
+        <item>Search</item>
+        <item>Play / pause</item>
+    </string-array>
+    <string name="battery_title">Battery</string>
+    <string name="battery_summary">Charge limit, battery health</string>
+    <string name="charge_limit_title">Charge limit</string>
+    <string name="charge_limit_off">Off</string>
+    <string name="charge_limit_summary">Charging stops at the limit and resumes when the level drops by %1$d%%. Keeping the battery below 100%% slows its wear.</string>
+    <string name="battery_info">Battery status</string>
+    <string name="battery_level">Level</string>
+    <string name="battery_current">Current</string>
+    <string name="battery_voltage">Voltage</string>
+    <string name="battery_temp">Temperature</string>
+    <string name="battery_cycles">Charge cycles</string>
+    <string name="battery_capacity">Capacity (actual / design)</string>
+    <string name="battery_capacity_value">%1$d / %2$d mAh</string>
+    <string name="battery_wear">Wear</string>
+    <string name="status_charging">charging</string>
+    <string name="status_full">full</string>
+    <string name="status_not_charging">not charging</string>
+    <string name="status_discharging">discharging</string>
+    <string name="unit_ma">%1$d mA</string>
+    <string name="unit_mv">%1$d mV</string>
+    <string name="unit_celsius">%1$.1f °C</string>
+    <string name="network_title">Network</string>
+    <string name="tcp_cc_title">TCP congestion control</string>
+    <string-array name="tcp_cc_entries">
+        <item>CUBIC (default)</item>
+        <item>BBR: faster on weak mobile signal</item>
+    </string-array>
+    <string name="network_summary">5 GHz hotspot, TCP congestion control, firewall</string>
+    <string name="touchpad_title">Keyboard touchpad</string>
+    <string name="touchpad_mode">Swipes on the keyboard</string>
+    <string-array name="touchpad_mode_entries">
+        <item>Scroll and text cursor</item>
+        <item>Scroll only</item>
+        <item>Off</item>
+    </string-array>
+    <string name="touchpad_sensitivity">Sensitivity</string>
+    <string-array name="touchpad_sensitivity_entries">
+        <item>Low</item>
+        <item>Medium</item>
+        <item>High</item>
+    </string-array>
+    <string name="touchpad_invert">Reverse scrolling</string>
+    <string name="action_rear_selfie">Rear screen: selfie (main camera, press again to shoot)</string>
+    <string name="action_rear_qr">Rear screen: QR code (Wi-Fi or clipboard)</string>
+    <string name="action_rear_light">Rear screen: fill light</string>
+    <string name="rear_qr_wifi">Wi-Fi</string>
+    <string name="rear_qr_clipboard">Clipboard</string>
+    <string name="rear_qr_nothing">No Wi-Fi and nothing in the clipboard</string>
+    <string name="rear_selfie_taken">Saved</string>
+    <string name="usb_guard_title">USB: charging only when locked</string>
+    <string name="usb_guard_entry_summary">Block USB data while the screen is locked</string>
+    <string name="usb_guard_summary">While the phone is locked, USB data (file transfer, adb, accessories) is switched off and only charging works. Unlocking turns it back on.</string>
+    <string name="action_privacy">Camera and microphone off / on</string>
+    <string name="perf_title">Performance</string>
+    <string name="perf_summary">CPU profile, I/O scheduler, boot log</string>
+    <string name="cpu_profile_title">CPU profile</string>
+    <string-array name="cpu_profile_entries">
+        <item>Balanced (default)</item>
+        <item>Power saving: CPU limited to 60%</item>
+        <item>Performance: higher minimum frequency</item>
+    </string-array>
+    <string name="io_sched_title">Storage I/O scheduler</string>
+    <string-array name="io_sched_entries">
+        <item>mq-deadline (default)</item>
+        <item>kyber: low latency</item>
+        <item>bfq: fair, smooth under load</item>
+        <item>none</item>
+    </string-array>
+    <string name="bootlog_title">Boot log</string>
+    <string name="bootlog_summary">Kernel log and logcat of every boot are kept in /metadata (they survive a boot loop and a data wipe in the bootloader) and copied to /data/local/tmp/titan2log after boot. For troubleshooting: the logs can contain personal data.</string>
+    <string name="verbose_boot_title">Verbose boot</string>
+    <string name="verbose_boot_summary">Show the kernel log and logcat on screen during boot, like on a desktop Linux, instead of the boot animation.</string>
+    <string name="firewall_title">Firewall</string>
+    <string name="firewall_summary">Internet access per app</string>
+    <string name="firewall_note">Turned off = the app gets no network at all: Wi-Fi, mobile data and VPN. System services without an icon are not listed.</string>
+    <string name="kbd_led_title">Keyboard backlight</string>
+    <string name="kbd_led_entry_summary">Duration, brightness, automatic adjustment</string>
+    <string name="kbd_led_auto">Automatic keyboard light</string>
+    <string name="kbd_led_auto_summary">Brightness follows the light around you</string>
+    <string name="kbd_led_timeout">Keyboard backlight duration</string>
+    <string-array name="kbd_led_timeout_entries">
+        <item>Always off</item>
+        <item>3 seconds</item>
+        <item>5 seconds</item>
+        <item>10 seconds</item>
+        <item>15 seconds</item>
+        <item>30 seconds</item>
+        <item>Same as screen timeout</item>
+    </string-array>
+    <string name="kbd_led_brightness">Backlight brightness</string>
+    <string name="kbd_gesture_title">Keyboard gesture</string>
+    <string name="kbd_gesture_summary">Scroll and cursor assistant, keyboard touchpad</string>
+    <string name="scroll_assistant_title">Scroll assistant</string>
+    <string name="cursor_assistant_title">Cursor assistant</string>
+    <string name="cursor_assistant_info">In a text field, double-tap the keyboard touchpad to enter text cursor mode. Swipe to move the cursor up, down, left or right. Double-tap again, or just start typing, to leave it.</string>
+    <string name="slide_light_title">Slide to turn on the keyboard light</string>
+    <string name="slide_light_summary">When the keyboard light is off, a long sideways swipe across the keys turns it back on</string>
+    <string name="slide_light_summary_off">Not available while the backlight is set to Always off</string>
+    <string name="alt_wake_title">Alt key wake keyboard</string>
+    <string name="alt_wake_summary">Press Alt to turn the screen on while it is off</string>
+    <string name="scroll_assistant_info">Swipe across the keyboard to scroll the screen in apps that scroll up and down or sideways.</string>
+    <string name="scroll_assistant_help">\nIf scrolling feels wrong in an app, pick a different mode for it.</string>
+    <string name="scroll_assistant_summary">Slide and click: swipe to scroll, tap to click.\nSliding Mode 1: swipe to scroll, taps are ignored.\nSliding Mode 2: acts like a mouse wheel, only in apps that support one.\nMouse Mode 1: the left two fifths of the touchpad move a mouse pointer; the rest scrolls, and a tap there clicks at the pointer.\nMouse Mode 2: the same, with the right two fifths moving the pointer.</string>
+    <string name="scroll_assistant_app_list">App list</string>
+    <string name="scroll_assistant_apply_all">Apply to all apps</string>
+    <string-array name="touchpad_event_type">
+        <item>Close</item>
+        <item>Slide and click</item>
+        <item>Sliding Mode 1</item>
+        <item>Sliding Mode 2</item>
+        <item>Mouse Mode 1</item>
+        <item>Mouse Mode 2</item>
+    </string-array>
+    <string name="double_tap_wake_title">Double-click touchpad wake up</string>
+    <string name="double_tap_wake_summary">Tap the keyboard touchpad twice quickly to turn the screen on</string>
+    <!-- Programmable keys -->
+    <string name="key_setting_title">Key setting</string>
+    <string name="func1_key_title">Func1 key</string>
+    <string name="func2_key_title">Func2 key</string>
+    <string name="sym_key_title">Sym key</string>
+    <string name="fn_key_title">Fn key</string>
+    <string name="shift_key_title">Shift key</string>
+    <string name="alt_key_title">Alt key</string>
+    <string name="back_key_title">Back key</string>
+    <string name="recent_key_title">Recent key</string>
+    <string name="space_key_title">Space key</string>
+    <string name="letter_key_title">Letter key</string>
+    <string name="mode_ptt">PTT key</string>
+    <string name="mode_programmable">Programmable key</string>
+    <string name="mode_shortcut">Shortcut settings</string>
+    <string name="ptt_app_name">PTT app: %1$s</string>
+    <string name="ptt_app_picker_title">Choose PTT app</string>
+    <string name="ptt_none">None</string>
+    <string name="category_fmt">%1$s - %2$s</string>
+    <string name="func_none">None</string>
+    <string name="func_media">Media key</string>
+    <string name="func_power">Power key</string>
+    <string name="func_sym">Sym key</string>
+    <string name="func_ctrl">Ctrl key</string>
+    <string name="func_tab">Tab key</string>
+    <string name="func_shift">Shift key</string>
+    <string name="func_alt">Alt key</string>
+    <string name="func_home">Home key</string>
+    <string name="func_back">Back key</string>
+    <string name="func_recent">Recent key</string>
+    <string name="func_magic">Magic key</string>
+    <string name="footer_sym">Opens the symbol picker of the keyboard app, if it has one.</string>
+    <string name="footer_media">Press once to play or pause, twice for the next track, hold for the previous track.</string>
+    <string name="footer_magic">Hold this key and press a letter to run that letter\'s shortcut, in any app.</string>
+    <string name="footer_shift">Press Shift, then a letter, for one capital. Press Shift twice to lock capitals (in Plektra).</string>
+    <string name="footer_alt">Press Alt, then a key, for its Alt character. Press Alt twice to lock the Alt layer (in Plektra).</string>
+    <string name="footer_power">Works like the power button: turns the screen off and on.</string>
+    <string name="footer_none">%1$s does nothing now. You can make it act as another key, such as Sym or Media.</string>
+    <string name="footer_shortcut">A short press, a long press and a double press can each run a function or open an app.</string>
+    <string name="footer_plektra">Plektra handles Sym and Fn by scan code inside text fields, so there a remapped Sym or Fn still works as Sym or Ctrl. In Shortcut mode, and as None or Magic key, the key is taken away from the keyboard app too.</string>
+    <string name="sc_none">No operation</string>
+    <string name="sc_flashlight">Open flashlight</string>
+    <string name="sc_record">Start recording</string>
+    <string name="sc_screenshot">Screenshot</string>
+    <string name="sc_silent">Silent mode</string>
+    <string name="sc_screen_off">Screen off</string>
+    <string name="sc_vibration">Vibration mode</string>
+    <!-- Space bar -->
+    <string name="space_double_category">Double click</string>
+    <string name="space_answer_title">Incoming calls</string>
+    <string name="space_answer_summary">Double click the space bar to answer in the coming call interface</string>
+    <string name="space_reject_title">Call hang up</string>
+    <string name="space_reject_summary">Double click the space bar to hang up in the call interface</string>
+    <string name="space_capture_title">Take pictures</string>
+    <string name="space_capture_summary">Double click the space bar to take a picture in the camera interface</string>
+    <string name="space_click_category">Click</string>
+    <string name="space_home_title">Back to desktop</string>
+    <string name="space_home_summary">Except for the input interface, you can click back to the desktop</string>
+    <string name="space_note">Note that the above functions are not available for input.</string>
+    <!-- Letter shortcuts -->
+    <string name="letters_title">Keyboard shortcuts</string>
+    <string name="letters_info">Open keyboard shortcuts, you can configure the unique shortcut function of each key. Short or long press the shortcut button you set while in the main interface to quick start the corresponding function.</string>
+    <string name="letters_magic_info">Holding a key set to Magic key, the shortcuts also work in any app while no text field is active.</string>
+    <string name="letter_not_set">Not set</string>
+    <string name="letter_set_title">Set %1$s Shortcuts</string>
+    <string name="letter_all_apps">All apps</string>
+    <string name="letter_all_shortcuts">All shortcuts</string>
+    <string name="letter_delete">Delete</string>
+    <!-- Titan2Parts key extensions: profiles, chords, long space -->
+    <string name="state_off">Off</string>
+    <string name="keys_extra_category">Titan 2 extras</string>
+    <string name="profile_override_title">Own settings for %1$s</string>
+    <string name="profile_override_summary">While this app is in front, the key works as set here instead of the general settings.</string>
+    <string name="profile_inherit">As in general settings</string>
+    <string name="profile_remove">Delete profile</string>
+    <string name="profiles_title">App profiles</string>
+    <string name="profiles_entry_summary">Different key functions in chosen apps</string>
+    <string name="profiles_add">Add app</string>
+    <string name="profiles_info">A profile changes the mode, function or press actions of chosen keys while its app is in front. Remapped keys switch over a moment after the app opens.</string>
+    <string name="chords_title">Sym chords</string>
+    <string name="chords_entry_summary">Sym + letter: insert text or open an app</string>
+    <string name="chords_info">Hold Sym (or Fn and Sym) and press a letter to insert a text snippet or open an app or shortcut.</string>
+    <string name="chords_letters">Letters</string>
+    <string name="chord_modifier_title">Key combination</string>
+    <string name="chord_mod_sym">Sym + letter</string>
+    <string name="chord_mod_fnsym">Fn + Sym + letter</string>
+    <string name="chord_in_fields_title">Also in text fields</string>
+    <string name="chord_in_fields_summary">Off: chords work only while no text field is active, so Sym stays with Plektra while typing. On: assigned letters are taken from Plektra too (text snippets need this). Plektra still sees the Sym press itself and may open its symbol page.</string>
+    <string name="chord_text">Text snippet</string>
+    <string name="chord_text_hint">e.g. Best regards, {date}</string>
+    <string name="chord_text_help">Inserted through the clipboard (Ctrl+V); the clipboard is restored after a second. {date} and {time} are replaced with the current date and time, {date:dd.MM.yyyy} or {time:HH:mm} use your own pattern.</string>
+    <string name="space_long_layout_title">Hold space to switch layout</string>
+    <string name="space_long_layout_summary">While typing, holding the space bar for half a second switches to the next keyboard layout or language (like Ctrl+Space). Space no longer auto-repeats and is typed when released.</string>
+    <string name="sc_screen_record">Screen recording</string>
+    <string name="kbd_setup_title">Titan 2 keyboard setup</string>
+    <string name="kbd_setup_intro">Pick a preset or adjust the keyboard to your liking. Everything can be changed later in Settings → Titan 2.</string>
+    <string name="kbd_setup_preset">Preset</string>
+    <string name="kbd_setup_preset_summary">Sets the Fn and Sym keys, touchpad assistants and backlight timeout at once</string>
+    <string-array name="kbd_setup_preset_entries">
+        <item>For typing (recommended): Fn = Ctrl, cursor and scroll assistants on</item>
+        <item>Factory defaults: Fn = Home, scroll assistant on</item>
+        <item>Minimal: Fn = Ctrl, touchpad off</item>
+    </string-array>
+    <string name="kbd_setup_ime_cat">Input</string>
+    <string name="kbd_setup_ime">Keyboard (input method)</string>
+    <string name="kbd_setup_ime_summary">Plektra is made for the hardware keyboard: Sym pages, Alt symbols, navigation with Fn</string>
+    <string name="kbd_setup_layouts">Languages and layouts</string>
+    <string name="kbd_setup_layouts_summary">Physical keyboard layouts (for example English and Russian)</string>
+    <string name="kbd_setup_keys_cat">Keys</string>
+    <string name="kbd_setup_fn">Fn key</string>
+    <string name="kbd_setup_sym">Sym key</string>
+    <string name="kbd_setup_more_keys">More: shortcuts, side keys, profiles</string>
+    <string name="kbd_setup_touchpad_cat">Keyboard touchpad</string>
+    <string name="kbd_setup_scroll_summary">Swipe on the keyboard to scroll</string>
+    <string name="kbd_setup_cursor_summary">In a text field, double-tap the keyboard and swipe to move the cursor</string>
+    <string name="kbd_setup_touchpad_mode">Mode for all apps</string>
+    <string name="kbd_setup_touchpad_mode_summary">Can be set per app in Scroll assistant</string>
+    <string name="kbd_setup_done">Done</string>
+    <string name="kbd_setup_done_summary">All of these settings are in Settings → Titan 2</string>
+    <!-- the "Titan 2" section in Settings -->
+    <string name="titan2_title">Titan 2</string>
+    <string name="titan2_summary">Keyboard, touchpad, network, battery</string>
+    <string name="keyboard_section_title">Keyboard</string>
+    <string name="keyboard_section_summary">Input method, keys, space, letter shortcuts, app profiles</string>
+    <string name="side_keys_title">Side keys</string>
+    <string name="side_keys_summary">Func1 and Func2: flashlight, camera, apps</string>
+    <string name="touchpad_summary">Scroll and cursor assistants, double tap to wake</string>
+    <string name="kbd_led_summary">Brightness, timeout, light on swipe</string>
+    <string name="system_title">System</string>
+    <string name="security_title">Security</string>
+    <string name="kbd_led_brightness_auto">Set by the light sensor while automatic adjustment is on</string>
+    <string name="rear_title">Rear screen</string>
+    <string name="rear_summary">Second display, clock, apps, wake on double tap or flip</string>
+    <string name="rear_enabled_title">Rear screen desktop</string>
+    <string name="rear_enabled_summary">Use the rear screen as a second display with its own shell. Sleeps on its own; wakes on double tap or when the phone is turned over</string>
+    <string name="rear_modes_title">Side key modes</string>
+    <string name="rear_modes_summary">Selfie with the main camera, QR code, fill light: assign them to Func1/Func2</string>
+    <!-- rear screen: settings of the RearShell shell (RearScreenActivity and fragments) -->
+    <string name="rear_cat_screen">Screen</string>
+    <string name="rear_timeout_title">Turn off after</string>
+    <string name="rear_brightness_title">Brightness</string>
+    <string name="rear_brightness_off">The rear screen is off</string>
+    <string name="rear_wake_tap_title">Wake on double tap</string>
+    <string name="rear_wake_tap_summary">Double tap the dark rear screen to turn it on</string>
+    <string name="rear_wake_pose_title">Only when the rear screen faces up</string>
+    <string name="rear_wake_pose_summary">Ignore double taps while the phone is upright or lies main screen up, e.g. in a pocket</string>
+    <string name="rear_wake_flip_title">Wake when turned over</string>
+    <string name="rear_wake_flip_summary">Turn the rear screen on when the phone lies with the main screen facing down</string>
+    <string name="rear_system_decors_title">System controls</string>
+    <string name="rear_system_decors_summary">Status bar, notification shade, navigation bar and back gesture on the rear screen. Android settings and apps are not adapted to this screen</string>
+    <string name="rear_cat_lock">When the phone is locked</string>
+    <string name="rear_lock_mode_title">Show on the rear screen</string>
+    <string name="rear_unlock_title">Unlock from the rear screen</string>
+    <string name="rear_unlock_summary">Swipe up on the clock to enter the PIN or pattern. Off: swipe up only shows a hint</string>
+    <string name="rear_lock_torch_title">Flashlight while locked</string>
+    <string name="rear_lock_torch_summary">Keep the flashlight in the quick panel and gestures when the phone is locked</string>
+    <string name="rear_notif_access_title">Notification info on the clock</string>
+    <string name="rear_notif_access_summary">Lets the rear shell count notifications (and show titles if the lock mode allows it)</string>
+    <string name="rear_cat_shell">Rear shell</string>
+    <string name="rear_cat_keys">Side keys</string>
+    <string name="rear_themes_title">Themes</string>
+    <string name="rear_themes_summary">Colors, fonts, clock faces, wallpaper; import, export, editor</string>
+    <string name="rear_clock_title">Clock</string>
+    <string name="rear_clock_summary">Face, seconds, date, battery, taps on the clock</string>
+    <string name="rear_home_title">Home screen and animations</string>
+    <string name="rear_home_summary">Favorites pages, grid, icons, app list order, animation speed</string>
+    <string name="rear_gestures_title">Gestures</string>
+    <string name="rear_gestures_summary">Navigation over apps and home screen swipes</string>
+    <string name="rear_tiles_title">Quick panel</string>
+    <string name="rear_tiles_summary">Which tiles and in what order</string>
+    <string name="rear_apps_title">Apps on the rear screen</string>
+    <string name="rear_apps_summary">All apps or only the ones you pick</string>
+    <string name="rear_favorites_title">Favorites</string>
+    <string name="rear_favorites_summary">Apps on the pages after the clock, in your order</string>
+    <string name="rear_editor_title">Theme editor</string>
+    <string name="rear_from_theme">From theme</string>
+    <string name="rear_cat_face">Clock face</string>
+    <string name="rear_face_title">Clock face</string>
+    <string name="rear_seconds_title">Seconds</string>
+    <string name="rear_24h_title">Time format</string>
+    <string name="rear_cat_clock_info">Under the clock</string>
+    <string name="rear_date_title">Date</string>
+    <string name="rear_date_format_title">Date format</string>
+    <string name="rear_date_custom_title">Own date format</string>
+    <string name="rear_date_custom_summary">Skeleton for DateFormat.getBestDateTimePattern, e.g. EEE d MMM. Empty — as in the theme</string>
+    <string name="rear_battery_title">Battery level</string>
+    <string name="rear_notif_count_title">Notification count</string>
+    <string name="rear_cat_clock_touch">Touching the clock</string>
+    <string name="rear_clock_tap_title">Tap</string>
+    <string name="rear_clock_double_tap_title">Double tap</string>
+    <string name="rear_clock_long_press_title">Long press</string>
+    <string name="rear_cat_nav">Navigation over apps</string>
+    <string name="rear_gestures_enable_title">Navigation gestures</string>
+    <string name="rear_gestures_enable_summary">Android gesture navigation does not work on the rear screen; the shell has its own</string>
+    <string name="rear_sens_title">Sensitivity</string>
+    <string name="rear_g_bottom">Swipe up from the bottom edge</string>
+    <string name="rear_g_hold">Swipe up and hold</string>
+    <string name="rear_g_left">Swipe in from the left edge</string>
+    <string name="rear_g_right">Swipe in from the right edge</string>
+    <string name="rear_haptic_title">Vibrate on gestures</string>
+    <string name="rear_cat_home_gestures">On the home screen</string>
+    <string name="rear_swipe_up_title">Swipe up</string>
+    <string name="rear_swipe_down_title">Swipe down</string>
+    <string name="rear_swipe_anywhere_title">Swipe down anywhere</string>
+    <string name="rear_swipe_anywhere_summary">Off: only from the top edge</string>
+    <string name="rear_gestures_note">When the phone is locked, swipe up on the clock always unlocks (or shows a hint) and swipe down opens the quick panel with the flashlight and brightness only.</string>
+    <string name="rear_cat_home">Home screen</string>
+    <string name="rear_home_favorites_title">Favorites pages</string>
+    <string name="rear_home_favorites_summary">Pages with favorite apps after the clock</string>
+    <string name="rear_columns_title">Columns</string>
+    <string name="rear_rows_title">Rows</string>
+    <string name="rear_labels_title">App names</string>
+    <string name="rear_icon_shape_title">Icon shape</string>
+    <string name="rear_icon_style_title">Icon style</string>
+    <string name="rear_icon_size_title">Icon size</string>
+    <string name="rear_sort_title">App list order</string>
+    <string name="rear_cat_anim">Animations</string>
+    <string name="rear_anim_title">Animations</string>
+    <string name="rear_anim_summary">Panels follow the finger, pages and apps open smoothly. The system animation scale applies too</string>
+    <string name="rear_anim_speed_title">Speed</string>
+    <string name="rear_anim_style_title">Style</string>
+    <string name="rear_apps_only_title">Only selected apps</string>
+    <string name="rear_apps_only_summary">Off: every app with a launcher icon is on the rear screen</string>
+    <string name="rear_apps_search">Search apps</string>
+    <string name="rear_apps_list">Apps</string>
+    <string name="rear_apps_select_all">Select all shown</string>
+    <string name="rear_apps_select_none">Clear all shown</string>
+    <string name="rear_favorites_info">Drag by the handle (or long press) to reorder. Also: long press an icon on the rear screen to add or remove it</string>
+    <string name="rear_favorites_add">Add apps</string>
+    <string name="rear_favorites_empty">No favorites yet</string>
+    <string name="rear_tiles_info">Check the tiles you want and drag them into order. While the phone is locked only the flashlight is shown (if allowed)</string>
+    <string name="rear_drag">Drag</string>
+    <string name="rear_remove">Remove</string>
+    <string name="rear_work_badge">(work)</string>
+    <string name="rear_themes_actions">Create and import</string>
+    <string name="rear_theme_create">New theme</string>
+    <string name="rear_theme_create_summary">Based on the current theme: change only what you want</string>
+    <string name="rear_theme_import">Import theme</string>
+    <string name="rear_theme_import_summary">A theme.json file or a .zip with theme.json, fonts and images</string>
+    <string name="rear_themes_list">Themes</string>
+    <string name="rear_themes_footer">Tap a theme to apply it, the gear for more: edit, copy, export, view JSON. Theme format: THEMES.md in RearShell sources; export any theme to see a ready example.</string>
+    <string name="rear_theme_broken">Theme error: %1$s</string>
+    <string name="rear_theme_builtin">Built-in</string>
+    <string name="rear_theme_user">Yours</string>
+    <string name="rear_theme_extends">based on %1$s</string>
+    <string name="rear_theme_apply">Apply</string>
+    <string name="rear_theme_edit">Edit</string>
+    <string name="rear_theme_customize">Customize (new theme based on it)</string>
+    <string name="rear_theme_duplicate">Copy</string>
+    <string name="rear_theme_copy_name">%1$s (copy)</string>
+    <string name="rear_theme_custom_name">%1$s (mine)</string>
+    <string name="rear_theme_export">Export</string>
+    <string name="rear_theme_exported">Theme exported</string>
+    <string name="rear_theme_show_json">Show JSON</string>
+    <string name="rear_theme_delete">Delete</string>
+    <string name="rear_theme_delete_confirm">Delete theme “%1$s”?</string>
+    <string name="rear_theme_delete_parent">Delete theme “%1$s”? These themes are based on it and will stop working: %2$s</string>
+    <string name="rear_theme_failed">Failed: %1$s</string>
+    <string name="rear_theme_import_failed">Theme not imported</string>
+    <string name="rear_theme_imported">Theme “%1$s” imported</string>
+    <string name="rear_color_hue">Hue</string>
+    <string name="rear_color_saturation">Saturation</string>
+    <string name="rear_color_value">Brightness</string>
+    <string name="rear_color_alpha">Opacity</string>
+    <string name="rear_color_inherit">As parent</string>
+    <string name="rear_ed_cat_theme">Theme</string>
+    <string name="rear_ed_name">Name</string>
+    <string name="rear_ed_author">Author</string>
+    <string name="rear_ed_description">Description</string>
+    <string name="rear_ed_empty">Not set</string>
+    <string name="rear_ed_base">Based on</string>
+    <string name="rear_ed_base_none">Nothing (defaults)</string>
+    <string name="rear_ed_cat_colors">Colors</string>
+    <string name="rear_ed_cat_elements">Colors of single elements</string>
+    <string name="rear_ed_inherited">Inherited: %1$s</string>
+    <string name="rear_ed_inherit_item">As parent %1$s</string>
+    <string name="rear_ed_on">On</string>
+    <string name="rear_ed_off">Off</string>
+    <string name="rear_ed_cat_font">Font</string>
+    <string name="rear_ed_font">Font</string>
+    <string name="rear_ed_weight">Weight</string>
+    <string name="rear_ed_clock_font">Clock font</string>
+    <string name="rear_ed_clock_weight">Clock weight</string>
+    <string name="rear_ed_same">Same as text</string>
+    <string name="rear_ed_scale">Text size</string>
+    <string name="rear_ed_label_size">Label size</string>
+    <string name="rear_ed_font_file">From file…</string>
+    <string name="rear_ed_file">File %1$s</string>
+    <string name="rear_ed_cat_clock">Clock</string>
+    <string name="rear_ed_digits">Digits</string>
+    <string name="rear_ed_clock_size">Clock size</string>
+    <string name="rear_ed_ticks">Ticks</string>
+    <string name="rear_ed_numbers">Numbers 12, 3, 6, 9</string>
+    <string name="rear_ed_hand_width">Hand width</string>
+    <string name="rear_ed_language">Language</string>
+    <string name="rear_ed_case">Letter case</string>
+    <string name="rear_ed_leading_zero">Leading zero</string>
+    <string name="rear_ed_blink">Blinking separator</string>
+    <string name="rear_ed_separator">Separator</string>
+    <string name="rear_ed_space">Space</string>
+    <string name="rear_ed_cat_wallpaper">Wallpaper</string>
+    <string name="rear_ed_wall_type">Type</string>
+    <string name="rear_ed_wall_color">Color</string>
+    <string name="rear_ed_gradient_color">Gradient color %1$d</string>
+    <string name="rear_ed_angle">Gradient direction</string>
+    <string name="rear_ed_image">Picture</string>
+    <string name="rear_ed_image_none">Not chosen</string>
+    <string name="rear_ed_blur">Blur</string>
+    <string name="rear_ed_dim">Dimming</string>
+    <string name="rear_ed_cat_grid">Icons and grid</string>
+    <string name="rear_ed_label_lines">Label lines</string>
+    <string name="rear_ed_indicator">Page dots</string>
+    <string name="rear_ed_cat_save">Save</string>
+    <string name="rear_ed_save">Save</string>
+    <string name="rear_ed_save_summary">As theme “%1$s”: only the changed values, the rest comes from the parent</string>
+    <string name="rear_ed_save_apply">Save and apply</string>
+    <string name="rear_ed_saved">Saved</string>
+    <string name="rear_ed_saved_applied">Saved and applied</string>
+    <string name="rear_ed_save_failed">Cannot save</string>
+    <string name="rear_ed_footer">“As parent” in a list or color dialog removes your value. Fonts and pictures are copied into the theme.</string>
+    <string-array name="rear_timeout_entries">
+        <item>15 seconds</item>
+        <item>30 seconds</item>
+        <item>1 minute</item>
+        <item>2 minutes</item>
+        <item>5 minutes</item>
+        <item>Never</item>
+    </string-array>
+    <string-array name="rear_lock_mode_entries">
+        <item>Nothing (screen stays black)</item>
+        <item>Clock only</item>
+        <item>Clock, battery and notification count</item>
+        <item>Clock and notification titles (less private)</item>
+    </string-array>
+    <string-array name="rear_tri_entries">
+        <item>From theme</item>
+        <item>Show</item>
+        <item>Hide</item>
+    </string-array>
+    <string-array name="rear_24h_entries">
+        <item>From theme</item>
+        <item>As in system</item>
+        <item>24-hour</item>
+        <item>12-hour</item>
+    </string-array>
+    <string-array name="rear_face_entries">
+        <item>Digital</item>
+        <item>Digital with seconds</item>
+        <item>Analog</item>
+        <item>Words</item>
+        <item>Minimal</item>
+    </string-array>
+    <string-array name="rear_date_entries">
+        <item>From theme</item>
+        <item>Mon 5 Jan</item>
+        <item>Monday 5 January</item>
+        <item>5 January</item>
+        <item>05.01</item>
+        <item>05.01.2026</item>
+        <item>Monday</item>
+        <item>Mon 5</item>
+    </string-array>
+    <string-array name="rear_home_action_entries">
+        <item>App list</item>
+        <item>Quick panel</item>
+        <item>Recent apps</item>
+        <item>Next clock face</item>
+        <item>Flashlight</item>
+        <item>Turn the rear screen off</item>
+        <item>Rear screen settings</item>
+        <item>Nothing</item>
+    </string-array>
+    <string-array name="rear_nav_action_entries">
+        <item>Home</item>
+        <item>Back</item>
+        <item>Recent apps</item>
+        <item>Flashlight</item>
+        <item>Turn the rear screen off</item>
+        <item>Nothing</item>
+    </string-array>
+    <string-array name="rear_sens_entries">
+        <item>Low</item>
+        <item>Normal</item>
+        <item>High</item>
+    </string-array>
+    <string-array name="rear_icon_shape_entries">
+        <item>As the app draws it</item>
+        <item>Circle</item>
+        <item>Squircle</item>
+        <item>Rounded square</item>
+    </string-array>
+    <string-array name="rear_icon_style_entries">
+        <item>Color</item>
+        <item>Monochrome</item>
+    </string-array>
+    <string-array name="rear_sort_entries">
+        <item>A to Z</item>
+        <item>Z to A</item>
+        <item>Newest first</item>
+        <item>Oldest first</item>
+    </string-array>
+    <string-array name="rear_anim_style_entries">
+        <item>Standard</item>
+        <item>Expressive (springy)</item>
+        <item>Subtle</item>
+        <item>None</item>
+    </string-array>
+    <string-array name="rear_tile_entries">
+        <item>Flashlight</item>
+        <item>Wi-Fi</item>
+        <item>Do not disturb</item>
+        <item>Sound</item>
+        <item>Screen off</item>
+        <item>Settings</item>
+    </string-array>
+    <string-array name="rear_ed_token_entries">
+        <item>background — background</item>
+        <item>surface — tiles, keys</item>
+        <item>onSurface — text, digits</item>
+        <item>onSurfaceVariant — secondary text</item>
+        <item>primary — accent, active tiles</item>
+        <item>onPrimary — text on primary</item>
+        <item>secondary — second accent</item>
+        <item>accent — seconds, hands</item>
+        <item>error — errors</item>
+        <item>scrim — dimming under panels</item>
+    </string-array>
+    <string-array name="rear_ed_digits_entries">
+        <item>Regular</item>
+        <item>Bold</item>
+        <item>Thin</item>
+        <item>Outline</item>
+        <item>Tabular (equal width)</item>
+    </string-array>
+    <string-array name="rear_ed_wall_entries">
+        <item>Color</item>
+        <item>Gradient</item>
+        <item>Picture</item>
+    </string-array>
+    <string-array name="rear_ed_ticks_entries">
+        <item>All minutes</item>
+        <item>Hours only</item>
+        <item>None</item>
+    </string-array>
+    <string-array name="rear_ed_lang_entries">
+        <item>As in system</item>
+        <item>Russian</item>
+        <item>English</item>
+    </string-array>
+    <string-array name="rear_ed_case_entries">
+        <item>lower case</item>
+        <item>UPPER CASE</item>
+        <item>First capital</item>
+    </string-array>
+</resources>

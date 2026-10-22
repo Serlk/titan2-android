@@ -1,0 +1,39 @@
+From 9bbc3fba9de35efb735af6f7a1f29e362bafe103 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Sun, 18 Oct 2026 17:52:55 +0300
+Subject: [PATCH] Revert "Restore getSimStateForSlotIndex in
+ SubscriptionManager"
+
+This reverts commit 52fb59edb8273c165eb0d0f2b240bbbc5da0085d.
+---
+ .../android/telephony/SubscriptionManager.java     | 14 --------------
+ 1 file changed, 14 deletions(-)
+
+diff --git a/telephony/java/android/telephony/SubscriptionManager.java b/telephony/java/android/telephony/SubscriptionManager.java
+index cad0a59d0..8aff3c622 100644
+--- a/telephony/java/android/telephony/SubscriptionManager.java
++++ b/telephony/java/android/telephony/SubscriptionManager.java
+@@ -2984,20 +2984,6 @@ public class SubscriptionManager {
+         return TelephonyManager.getSimStateForSlotIndex(slotIndex);
+     }
+ 
+-    /**
+-     * Returns a constant indicating the state of sim for the slot index.
+-     *
+-     * @param slotIndex Logical SIM slot index.
+-     *
+-     * @see TelephonyManager.SimState
+-     *
+-     * @hide
+-     */
+-    @TelephonyManager.SimState
+-    public static int getSimStateForSlotIndex(int slotIndex) {
+-        return TelephonyManager.getSimStateForSlotIndex(slotIndex);
+-    }
+-
+     /**
+      * Set a field in the subscription database. Note not all fields are supported.
+      *
+-- 
+2.56.0
+

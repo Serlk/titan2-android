@@ -1,0 +1,143 @@
+From 21fb19a82ef669982226324ec6d60fad458c3ee1 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 01:16:33 +0300
+Subject: [PATCH 12/14] Titan 2: rear display home without system decorations
+
+The rear display hosts the rear shell as its home whether or not system decorations are shown.
+Status bar, shade, navigation bar, back gesture and wallpaper are off there unless the user
+turns them on (Settings.System titan2_rear_system_decors, applied at once); the setting wins
+over the persisted display_settings.xml entry.
+---
+ .../com/android/server/wm/DisplayContent.java |  4 +
+ .../server/wm/DisplayWindowSettings.java      |  3 +
+ .../android/server/wm/Titan2RearDecor.java    | 76 +++++++++++++++++++
+ .../server/wm/WindowManagerService.java       |  1 +
+ 4 files changed, 84 insertions(+)
+ create mode 100644 services/core/java/com/android/server/wm/Titan2RearDecor.java
+
+diff --git a/services/core/java/com/android/server/wm/DisplayContent.java b/services/core/java/com/android/server/wm/DisplayContent.java
+index d1d26d4d7..c7b296632 100644
+--- a/services/core/java/com/android/server/wm/DisplayContent.java
++++ b/services/core/java/com/android/server/wm/DisplayContent.java
+@@ -5887,6 +5887,10 @@ class DisplayContent extends RootDisplayArea implements WindowManagerPolicy.Disp
+      * and can also be set via {@link VirtualDisplayConfig.Builder#setHomeSupported}.</p>
+      */
+     boolean isHomeSupported() {
++        if (Titan2RearDecor.isRear(this)) {
++            // Titan 2: the rear shell is the home there, with or without system decorations
++            return isTrusted();
++        }
+         return (mWmService.mDisplayWindowSettings.isHomeSupportedLocked(this) && isTrusted())
+                 || isSystemDecorationsSupported();
+     }
+diff --git a/services/core/java/com/android/server/wm/DisplayWindowSettings.java b/services/core/java/com/android/server/wm/DisplayWindowSettings.java
+index 9004a6d4a..c238e6996 100644
+--- a/services/core/java/com/android/server/wm/DisplayWindowSettings.java
++++ b/services/core/java/com/android/server/wm/DisplayWindowSettings.java
+@@ -257,6 +257,9 @@ class DisplayWindowSettings {
+             // Default display should show system decors.
+             return true;
+         }
++        if (Titan2RearDecor.isRear(dc)) {
++            return Titan2RearDecor.shouldShow();
++        }
+ 
+         final DisplayInfo displayInfo = dc.getDisplayInfo();
+         final SettingsProvider.SettingsEntry settings = mSettingsProvider.getSettings(displayInfo);
+diff --git a/services/core/java/com/android/server/wm/Titan2RearDecor.java b/services/core/java/com/android/server/wm/Titan2RearDecor.java
+new file mode 100644
+index 000000000..005e5540c
+--- /dev/null
++++ b/services/core/java/com/android/server/wm/Titan2RearDecor.java
+@@ -0,0 +1,76 @@
++/*
++ * Copyright (C) 2026 serlk
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package com.android.server.wm;
++
++import android.content.ContentResolver;
++import android.database.ContentObserver;
++import android.os.SystemProperties;
++import android.os.UserHandle;
++import android.provider.Settings;
++import android.view.DisplayAddress;
++
++/**
++ * Titan 2: the rear display (port ro.titan2.rear_display_port) is a home display for the rear
++ * shell. System decorations (status bar, shade, navigation bar, back gesture, wallpaper) are off
++ * there unless the user turns them on in Titan2Parts (Settings.System titan2_rear_system_decors).
++ * The setting wins over the persisted display_settings.xml entry.
++ */
++final class Titan2RearDecor {
++    static final String SETTING = "titan2_rear_system_decors";
++    private static final int PORT = SystemProperties.getInt("ro.titan2.rear_display_port", -1);
++
++    private static volatile boolean sShow;
++
++    private Titan2RearDecor() {
++    }
++
++    static boolean isRear(DisplayContent dc) {
++        return PORT >= 0 && dc.getDisplayInfo().address instanceof DisplayAddress.Physical p
++                && p.getPort() == PORT;
++    }
++
++    static boolean shouldShow() {
++        return sShow;
++    }
++
++    static void start(WindowManagerService wms) {
++        if (PORT < 0) {
++            return;
++        }
++        final ContentResolver cr = wms.mContext.getContentResolver();
++        cr.registerContentObserver(Settings.System.getUriFor(SETTING), false,
++                new ContentObserver(wms.mH) {
++                    @Override
++                    public void onChange(boolean selfChange) {
++                        update(wms, cr);
++                    }
++                }, UserHandle.USER_ALL);
++        update(wms, cr);
++    }
++
++    private static void update(WindowManagerService wms, ContentResolver cr) {
++        final boolean show =
++                Settings.System.getIntForUser(cr, SETTING, 0, UserHandle.USER_SYSTEM) == 1;
++        synchronized (wms.mGlobalLock) {
++            if (show == sShow) {
++                return;
++            }
++            sShow = show;
++            wms.mRoot.forAllDisplays(dc -> {
++                if (!isRear(dc)) {
++                    return;
++                }
++                wms.mDisplayWindowSettings.setShouldShowSystemDecorsInternalLocked(dc, show);
++                dc.getDisplayPolicy().updateHasNavigationBarIfNeeded();
++                if (show) {
++                    wms.mRoot.startSystemDecorations(dc, "titan2_rear_system_decors");
++                } else {
++                    dc.getDisplayPolicy().notifyDisplayRemoveSystemDecorations();
++                }
++            });
++        }
++    }
++}
+diff --git a/services/core/java/com/android/server/wm/WindowManagerService.java b/services/core/java/com/android/server/wm/WindowManagerService.java
+index 9ad22aa5a..d902af342 100644
+--- a/services/core/java/com/android/server/wm/WindowManagerService.java
++++ b/services/core/java/com/android/server/wm/WindowManagerService.java
+@@ -5960,6 +5960,7 @@ public class WindowManagerService extends IWindowManager.Stub
+         mSystemReady = true;
+         mPolicy.systemReady();
+         mRoot.forAllDisplayPolicies(DisplayPolicy::systemReady);
++        Titan2RearDecor.start(this);
+         mSnapshotController.systemReady();
+         UiThread.getHandler().post(mSettingsObserver::loadSettings);
+         IVrManager vrManager = IVrManager.Stub.asInterface(
+-- 
+2.56.0
+

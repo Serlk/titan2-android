@@ -1,0 +1,7 @@
+// plektra-linux (GPL-3.0-or-later): the system evdev rules + unconditional inclusion
+// of the plektra-linux slots (/etc/xkb/symbols/titan2) over any layout and options.
+// libxkbcommon looks for rules/evdev in /etc/xkb first, %S is the system xkb directory.
+! include %S/evdev
+
+! model		=	symbols
+  *		=	+titan2(plektra)

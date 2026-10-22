@@ -1,0 +1,175 @@
+From cda33dd6b5d0646df59ca6e8a3ddb801fc13fd2d Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 01:16:33 +0300
+Subject: [PATCH 11/14] Titan 2: rear screen power group timeout
+
+The rear screen group sleeps after titan2_rear_screen_off_timeout (default 30 s, no dimming).
+The group is found lazily (its display is not in it yet when the group is added) and forgotten
+when the group is removed. "Stay awake while charging" keeps only the main screen on: the rear
+AMOLED faces up on the table, and its touch only reports the double tap while it sleeps.
+---
+ .../com/android/server/power/PowerGroup.java  | 10 ++-
+ .../server/power/PowerManagerService.java     | 74 ++++++++++++++++++-
+ 2 files changed, 81 insertions(+), 3 deletions(-)
+
+diff --git a/services/core/java/com/android/server/power/PowerGroup.java b/services/core/java/com/android/server/power/PowerGroup.java
+index 23bd8dcdc..9598088e7 100644
+--- a/services/core/java/com/android/server/power/PowerGroup.java
++++ b/services/core/java/com/android/server/power/PowerGroup.java
+@@ -107,8 +107,8 @@ public class PowerGroup {
+     private @PowerManager.GoToSleepReason int mLastSleepReason =
+             PowerManager.GO_TO_SLEEP_REASON_UNKNOWN;
+ 
+-    private final long mDimDuration;
+-    private final long mScreenOffTimeout;
++    private long mDimDuration;
++    private long mScreenOffTimeout;
+ 
+     private boolean mDreamManagerAttemptedDozing;
+ 
+@@ -171,6 +171,12 @@ public class PowerGroup {
+         mIsDefaultGroupAdjacent = isDefaultGroupAdjacent;
+     }
+ 
++    /** Titan 2: own sleep timeout for the rear screen group (no dimming before sleep). */
++    void setScreenOffTimeoutOverrideLocked(long screenOffTimeout) {
++        mScreenOffTimeout = screenOffTimeout;
++        mDimDuration = screenOffTimeout == INVALID_TIMEOUT ? INVALID_TIMEOUT : 0;
++    }
++
+     long getScreenOffTimeoutOverrideLocked(long defaultScreenOffTimeout) {
+         return mScreenOffTimeout == INVALID_TIMEOUT ? defaultScreenOffTimeout : mScreenOffTimeout;
+     }
+diff --git a/services/core/java/com/android/server/power/PowerManagerService.java b/services/core/java/com/android/server/power/PowerManagerService.java
+index 8aebdd8b2..2e1fba6b6 100644
+--- a/services/core/java/com/android/server/power/PowerManagerService.java
++++ b/services/core/java/com/android/server/power/PowerManagerService.java
+@@ -123,6 +123,7 @@ import android.util.SparseArray;
+ import android.util.TimeUtils;
+ import android.util.proto.ProtoOutputStream;
+ import android.view.Display;
++import android.view.DisplayAddress;
+ import android.view.DisplayInfo;
+ import android.view.KeyEvent;
+ 
+@@ -873,6 +874,7 @@ public final class PowerManagerService extends SystemService
+                         mFeatureFlags,
+                         isDefaultGroupAdjacent);
+                 mPowerGroups.append(groupId, powerGroup);
++                isTitan2RearPowerGroupLocked(powerGroup);
+                 onPowerGroupEventLocked(DISPLAY_GROUP_ADDED, powerGroup);
+             }
+         }
+@@ -888,6 +890,10 @@ public final class PowerManagerService extends SystemService
+                     Slog.e(TAG, "Tried to remove non-existent group:" + groupId);
+                     return;
+                 }
++                if (groupId == mTitan2RearGroupId) {
++                    // re-enabling the rear screen creates a new group id
++                    mTitan2RearGroupId = Display.INVALID_DISPLAY_GROUP;
++                }
+                 onPowerGroupEventLocked(DISPLAY_GROUP_REMOVED, mPowerGroups.get(groupId));
+             }
+         }
+@@ -899,6 +905,8 @@ public final class PowerManagerService extends SystemService
+                     Slog.e(TAG, "Tried to change non-existent group: " + groupId);
+                     return;
+                 }
++                // Titan 2: the rear display may join its group after the group was added
++                isTitan2RearPowerGroupLocked(mPowerGroups.get(groupId));
+                 onPowerGroupEventLocked(DISPLAY_GROUP_CHANGED, mPowerGroups.get(groupId));
+             }
+         }
+@@ -1582,6 +1590,8 @@ public final class PowerManagerService extends SystemService
+         resolver.registerContentObserver(Settings.System.getUriFor(
+                 Settings.System.SCREEN_OFF_TIMEOUT),
+                 false, mSettingsObserver, UserHandle.USER_ALL);
++        resolver.registerContentObserver(Settings.System.getUriFor(TITAN2_REAR_TIMEOUT),
++                false, mSettingsObserver, UserHandle.USER_ALL);
+         resolver.registerContentObserver(Settings.Secure.getUriFor(
+                 Settings.Secure.SLEEP_TIMEOUT),
+                 false, mSettingsObserver, UserHandle.USER_ALL);
+@@ -1715,9 +1725,69 @@ public final class PowerManagerService extends SystemService
+         }
+     }
+ 
++    // Titan 2: the rear screen group (display at port ro.titan2.rear_display_port, its own group
++    // via LocalDisplayAdapter) sleeps after its own timeout, titan2_rear_screen_off_timeout (ms)
++    private static final String TITAN2_REAR_TIMEOUT = "titan2_rear_screen_off_timeout";
++    private static final int TITAN2_REAR_DEFAULT_TIMEOUT = 30000;
++    private static final int TITAN2_REAR_PORT =
++            SystemProperties.getInt("ro.titan2.rear_display_port", -1);
++    @GuardedBy("mLock")
++    private int mTitan2RearGroupId = Display.INVALID_DISPLAY_GROUP;
++
++    @GuardedBy("mLock")
++    private boolean isTitan2RearGroupLocked(int groupId) {
++        final int port = TITAN2_REAR_PORT;
++        if (port < 0 || groupId == Display.DEFAULT_DISPLAY_GROUP) {
++            return false;
++        }
++        final int[] ids = mDisplayManagerInternal.getDisplayIdsForGroup(groupId);
++        if (ids == null) {
++            return false;
++        }
++        for (int id : ids) {
++            final DisplayInfo info = mDisplayManagerInternal.getDisplayInfo(id);
++            if (info != null && info.address instanceof DisplayAddress.Physical
++                    && ((DisplayAddress.Physical) info.address).getPort() == port) {
++                return true;
++            }
++        }
++        return false;
++    }
++
++    /**
++     * Whether this is the rear screen group. The display may not be in the group yet when the
++     * group is added, so this is checked lazily and remembered on the first match.
++     */
++    @GuardedBy("mLock")
++    private boolean isTitan2RearPowerGroupLocked(PowerGroup powerGroup) {
++        final int groupId = powerGroup.getGroupId();
++        if (mTitan2RearGroupId != Display.INVALID_DISPLAY_GROUP) {
++            return groupId == mTitan2RearGroupId;
++        }
++        if (!isTitan2RearGroupLocked(groupId)) {
++            return false;
++        }
++        mTitan2RearGroupId = groupId;
++        applyTitan2RearTimeoutLocked();
++        return true;
++    }
++
++    @GuardedBy("mLock")
++    private void applyTitan2RearTimeoutLocked() {
++        final PowerGroup group = mPowerGroups.get(mTitan2RearGroupId);
++        if (group == null) {
++            return;
++        }
++        // A device setting: Titan2Parts (system uid, user 0) writes it for the system user
++        final int timeout = Settings.System.getIntForUser(mContext.getContentResolver(),
++                TITAN2_REAR_TIMEOUT, TITAN2_REAR_DEFAULT_TIMEOUT, UserHandle.USER_SYSTEM);
++        group.setScreenOffTimeoutOverrideLocked(timeout > 0 ? timeout : Integer.MAX_VALUE);
++    }
++
+     @GuardedBy("mLock")
+     private void updateSettingsLocked() {
+         final ContentResolver resolver = mContext.getContentResolver();
++        applyTitan2RearTimeoutLocked();
+ 
+         mDreamsEnabledSetting = (Settings.Secure.getIntForUser(resolver,
+                 Settings.Secure.SCREENSAVER_ENABLED,
+@@ -3814,7 +3884,9 @@ public final class PowerManagerService extends SystemService
+      */
+     @GuardedBy("mLock")
+     private boolean isBeingKeptAwakeLocked(final PowerGroup powerGroup) {
+-        return mStayOn
++        // Titan 2: "stay awake while charging" keeps the main screen only; the rear AMOLED faces
++        // up on the table and must sleep, or its touch never switches to double-tap mode
++        return (mStayOn && !isTitan2RearPowerGroupLocked(powerGroup))
+                 || mProximityPositive
+                 || (powerGroup.getWakeLockSummaryLocked() & WAKE_LOCK_STAY_AWAKE) != 0
+                 || (powerGroup.getUserActivitySummaryLocked() & (
+-- 
+2.56.0
+

@@ -1,0 +1,27 @@
+#!/bin/sh
+# USB serial ports in the Lindroid container (Flipper Zero, USB-UART: CDC ACM, FTDI, CH34x).
+# /dev/bus/usb is passed through as a directory (libusb sees everything at once), but Android creates
+# the ttyACM*/ttyUSB* nodes right in /dev: they cannot be passed into the container in advance. We create them from /sys/class/tty
+# (the LXC config grants mknod and the 166/188 majors). Run on connect: sudo titan2-usb-serial
+set -e
+[ "$(id -u)" = 0 ] || { echo "run with sudo"; exit 1; }
+n=0
+for t in /sys/class/tty/ttyACM* /sys/class/tty/ttyUSB*; do
+    [ -e "$t/dev" ] || continue
+    name=$(basename "$t")
+    majmin=$(cat "$t/dev")
+    node=/dev/$name
+    maj=${majmin%:*} min=${majmin#*:}
+    # a node left from an earlier device may have other numbers (or not be a char device): recreate
+    if [ -e "$node" ] && [ "$(stat -c '%t:%T' "$node" 2>/dev/null)" != "$(printf '%x:%x' "$maj" "$min")" ]; then
+        rm -f "$node"
+    fi
+    if [ ! -c "$node" ]; then
+        mknod "$node" c "$maj" "$min"
+    fi
+    chgrp dialout "$node" 2>/dev/null || true
+    chmod 0660 "$node"
+    echo "$node ($(cat "$t/device/../product" 2>/dev/null || echo usb))"
+    n=$((n + 1))
+done
+[ "$n" -gt 0 ] || echo "no USB serial ports (connect a device)"

@@ -1,0 +1,56 @@
+From 08d871fc4614268fa4e88f1b50f3c58a17c866dd Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 01:16:33 +0300
+Subject: [PATCH 10/14] Titan 2: rear display in its own display group
+
+The rear screen (port ro.titan2.rear_display_port) gets FLAG_OWN_DISPLAY_GROUP and its own
+focus, so it sleeps and wakes separately from the main screen. With the separate_timeouts flag
+on, LogicalDisplayMapper put every display into the primary group; a display that asks for
+its own group now gets one.
+---
+ .../android/server/display/LocalDisplayAdapter.java  | 12 ++++++++++++
+ .../android/server/display/LogicalDisplayMapper.java |  5 ++++-
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/display/LocalDisplayAdapter.java b/services/core/java/com/android/server/display/LocalDisplayAdapter.java
+index 16159a693..5644fe110 100644
+--- a/services/core/java/com/android/server/display/LocalDisplayAdapter.java
++++ b/services/core/java/com/android/server/display/LocalDisplayAdapter.java
+@@ -796,6 +796,18 @@ final class LocalDisplayAdapter extends DisplayAdapter {
+                         mInfo.flags |= DisplayDeviceInfo.FLAG_OWN_FOCUS;
+                         mInfo.flags |= DisplayDeviceInfo.FLAG_STEAL_TOP_FOCUS_DISABLED;
+                     }
++
++                    // Titan 2: the rear display (port ro.titan2.rear_display_port) gets its own
++                    // display group (own power state and sleep timeout, wakes separately from the
++                    // main one) and its own focus. No FLAG_ALWAYS_UNLOCKED: on a locked phone only
++                    // showWhenLocked windows (the shell clock) are shown there.
++                    final int rearPort = SystemProperties.getInt("ro.titan2.rear_display_port", -1);
++                    if (rearPort >= 0 && physicalAddress != null
++                            && physicalAddress.getPort() == rearPort) {
++                        mInfo.flags |= DisplayDeviceInfo.FLAG_OWN_DISPLAY_GROUP
++                                | DisplayDeviceInfo.FLAG_OWN_FOCUS
++                                | DisplayDeviceInfo.FLAG_STEAL_TOP_FOCUS_DISABLED;
++                    }
+                 }
+ 
+                 if (getFeatureFlags().isDisplayContentModeManagementEnabled()) {
+diff --git a/services/core/java/com/android/server/display/LogicalDisplayMapper.java b/services/core/java/com/android/server/display/LogicalDisplayMapper.java
+index 475dbe422..c85568bf5 100644
+--- a/services/core/java/com/android/server/display/LogicalDisplayMapper.java
++++ b/services/core/java/com/android/server/display/LogicalDisplayMapper.java
+@@ -1093,7 +1093,10 @@ class LogicalDisplayMapper implements DisplayDeviceRepository.Listener {
+         // Choose a display group based on the content mode type of the display.
+         String requiredGroupType = GROUP_TYPE_PRIMARY;
+ 
+-        if (mFlags.isSeparateTimeoutsEnabled() && TextUtils.isEmpty(groupName)) {
++        // Titan 2: a display with FLAG_OWN_DISPLAY_GROUP (the rear screen) gets its own group,
++        // not the primary one the separate_timeouts allocator would pick
++        if (mFlags.isSeparateTimeoutsEnabled() && TextUtils.isEmpty(groupName)
++                && (displayDeviceInfo.flags & DisplayDeviceInfo.FLAG_OWN_DISPLAY_GROUP) == 0) {
+             requiredGroupType = mDisplayGroupAllocator.decideRequiredGroupTypeLocked(
+                     display, displayDeviceInfo.type);
+             decidedGroupId = calculateGroupId(requiredGroupType, mDisplayGroups);
+-- 
+2.56.0
+

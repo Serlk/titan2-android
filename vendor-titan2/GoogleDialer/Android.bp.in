@@ -1,0 +1,23 @@
+// Google Phone (com.google.android.dialer) from stock V01.00.10 (product/priv-app). MindTheGapps
+// has only the support library. The files are put here by scripts/prepare-vendor-titan2.sh.
+// presigned: Google signature, updates come through Play. Lineage Dialer stays (call recording).
+android_app_import {
+    name: "GoogleDialer",
+    apk: "GoogleDialer.apk",
+    presigned: true,
+    // targetSdk >= 30: v2 signature, the APK is installed as is (no zipalign/repacking)
+    preprocessed: true,
+    privileged: true,
+    product_specific: true,
+    dex_preopt: {
+        enabled: false,
+    },
+    required: ["privapp-permissions-google-comms-suite.xml"],
+}
+
+prebuilt_etc {
+    name: "privapp-permissions-google-comms-suite.xml",
+    src: "privapp-permissions-google-comms-suite.xml",
+    sub_dir: "permissions",
+    product_specific: true,
+}

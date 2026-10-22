@@ -1,0 +1,45 @@
+From ca9446617e9cc06eb5df484952a93c72bd647cb0 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 11:47:42 +0300
+Subject: [PATCH] lxc template: GSI hybris fixes (libtls-padding hooks, session
+ LD_PRELOAD, input uevent retry, keep Android input ownership)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lxc/template.sh | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/lxc/template.sh b/lxc/template.sh
+index 477a850..cf17179 100755
+--- a/lxc/template.sh
++++ b/lxc/template.sh
+@@ -329,6 +329,26 @@ prepare_rootfs_gsi() {
+   done
+   printf '[Login]\nHandlePowerKey=ignore\nHandlePowerKeyLongPress=ignore\nHandleSuspendKey=ignore\nHandleHibernateKey=ignore\nHandleLidSwitch=ignore\nHandleLidSwitchExternalPower=ignore\n' \
+     > "$r/etc/systemd/logind.conf.d/50-lindroid-keys.conf"
++  # libtls-padding with libhybris hooks for aligned_alloc/reallocarray (Mali: without them
++  # bionic-allocated memory reaches glibc free() and kwin_wayland aborts). Shipped by the device.
++  for f in /system_ext/usr/share/*/libtls-padding.so; do
++    [ -f "$f" ] && cp "$f" "$r/usr/lib/libtls-padding.so" && chmod 0644 "$r/usr/lib/libtls-padding.so" && break
++  done
++  # the greeter gets LD_PRELOAD from sddm.conf.d; the Plasma session (and its systemd user units) need it too
++  printf '%s\n' 'case ":$LD_PRELOAD:" in *:/usr/lib/libtls-padding.so:*) ;; *) export LD_PRELOAD=/usr/lib/libtls-padding.so${LD_PRELOAD:+:$LD_PRELOAD} ;; esac' \
++    > "$r/etc/profile.d/gsi-hybris-preload.sh"
++  echo "LD_PRELOAD=/usr/lib/libtls-padding.so" > "$r/etc/environment.d/91-gsi-hybris-preload.conf"
++  # /dev/input is a bind of Android's /dev/input (ueventd creates the nodes). When the uevent wins
++  # the race the node is missing and libinput/logind skip the device (keyboard): replay it.
++  mkdir -p "$r/etc/udev/rules.d"
++  cat > "$r/etc/udev/rules.d/60-lindroid-input-retry.rules" <<'RULE'
++SUBSYSTEM=="input", KERNEL=="event*", ACTION=="add", TEST!="/dev/input/%k", RUN+="/usr/bin/systemd-run --no-block --quiet --on-active=1 /usr/bin/udevadm trigger --action=add /sys%p"
++RULE
++  # the same nodes are Android's: keep root:input(1004) 0660, the container's own "input" group
++  # (and its chgrp on every uevent) locks Android's InputReader/touchpad users out
++  cat > "$r/etc/udev/rules.d/99-lindroid-android-input.rules" <<'RULE'
++SUBSYSTEM=="input", KERNEL=="event*|mouse*|mice|js*", GROUP="android_input", MODE="0660"
++RULE
+ }
+ 
+ unpack_rootfs() {
+-- 
+2.56.0
+

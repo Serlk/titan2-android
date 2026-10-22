@@ -1,0 +1,103 @@
+From 4435f49f8dfb8d405f6ecd9a9808431823a80da7 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 11:16:00 +0300
+Subject: [PATCH] Launcher3: no navigation inset for the IME without the IME
+ space (Titan 2)
+
+With crDroid's navbar IME space off (Settings.Secure.NAVBAR_IME_SPACE=0)
+and gesture navigation, the taskbar reports zero navigation-bar and
+mandatory-gesture insets to the input method window, so keyboards such
+as Plektra draw no empty strip under themselves.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../taskbar/TaskbarInsetsController.kt        | 38 +++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/quickstep/src/com/android/launcher3/taskbar/TaskbarInsetsController.kt b/quickstep/src/com/android/launcher3/taskbar/TaskbarInsetsController.kt
+index 0c83260..cf7bd6d 100644
+--- a/quickstep/src/com/android/launcher3/taskbar/TaskbarInsetsController.kt
++++ b/quickstep/src/com/android/launcher3/taskbar/TaskbarInsetsController.kt
+@@ -21,8 +21,11 @@ import android.graphics.Insets
+ import android.graphics.Paint
+ import android.graphics.Rect
+ import android.graphics.Region
++import android.database.ContentObserver
+ import android.os.Binder
+ import android.os.IBinder
++import android.os.UserHandle
++import android.provider.Settings
+ import android.view.DisplayInfo
+ import android.view.Gravity
+ import android.view.InsetsFrameProvider
+@@ -42,6 +45,7 @@ import android.view.WindowInsets.Type.navigationBars
+ import android.view.WindowInsets.Type.systemGestures
+ import android.view.WindowInsets.Type.tappableElement
+ import android.view.WindowManager
++import android.view.WindowManager.LayoutParams.TYPE_INPUT_METHOD
+ import android.view.WindowManager.LayoutParams.TYPE_VOICE_INTERACTION
+ import androidx.annotation.VisibleForTesting
+ import androidx.core.graphics.toRegion
+@@ -89,6 +93,13 @@ class TaskbarInsetsController(val context: TaskbarActivityContext) : LoggableTas
+             context,
+             this::onTaskbarOrBubblebarWindowHeightOrInsetsChanged,
+         )
++    // Titan 2: with crDroid's "IME space" (Settings.Secure.NAVBAR_IME_SPACE) turned off the
++    // keyboard window gets no navigation or home-gesture insets at the bottom
++    private val imeSpaceObserver =
++        object : ContentObserver(context.mainThreadHandler) {
++            override fun onChange(selfChange: Boolean) =
++                onTaskbarOrBubblebarWindowHeightOrInsetsChanged()
++        }
+     @VisibleForTesting val debugTouchableRegion = DebugTouchableRegion()
+ 
+     // Initialized in init.
+@@ -102,11 +113,18 @@ class TaskbarInsetsController(val context: TaskbarActivityContext) : LoggableTas
+ 
+         context.addOnDeviceProfileChangeListener(deviceProfileChangeListener)
+         gestureNavSettingsObserver.registerForCallingUser()
++        context.contentResolver.registerContentObserver(
++            Settings.Secure.getUriFor(Settings.Secure.NAVBAR_IME_SPACE),
++            false,
++            imeSpaceObserver,
++            UserHandle.USER_ALL,
++        )
+     }
+ 
+     fun onDestroy() {
+         context.removeOnDeviceProfileChangeListener(deviceProfileChangeListener)
+         gestureNavSettingsObserver.unregister()
++        context.contentResolver.unregisterContentObserver(imeSpaceObserver)
+     }
+ 
+     fun onTaskbarOrBubblebarWindowHeightOrInsetsChanged() =
+@@ -282,6 +300,26 @@ class TaskbarInsetsController(val context: TaskbarActivityContext) : LoggableTas
+         if (provider.type == tappableElement()) {
+             provider.insetsSizeOverrides = insetsSizeOverrideForTappableElement
+         }
++
++        // The IME override is always set (WM remembers the set when the window is added),
++        // only its size changes: zero without the "IME space".
++        if (provider.type == navigationBars() || provider.type == mandatorySystemGestures()) {
++            val noImeSpace =
++                context.isGestureNav &&
++                    Settings.Secure.getIntForUser(
++                        context.contentResolver,
++                        Settings.Secure.NAVBAR_IME_SPACE,
++                        1,
++                        UserHandle.USER_CURRENT,
++                    ) == 0
++            provider.insetsSizeOverrides =
++                arrayOf(
++                    InsetsFrameProvider.InsetsSizeOverride(
++                        TYPE_INPUT_METHOD,
++                        if (noImeSpace) Insets.NONE else provider.insetsSize,
++                    )
++                )
++        }
+     }
+ 
+     /**
+-- 
+2.56.0
+

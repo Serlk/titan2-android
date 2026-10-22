@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RearShell: home screen and gestures of the Titan 2 rear display.
+     Platform signature, priv-app in system_ext. Persistent process: the gesture monitor must live
+     while another app is open on the rear screen. Settings and themes are in Titan2Parts
+     (provider org.titan2.parts.rear), there is no settings screen of its own. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.titan2.rear">
+
+    <!-- settings and themes from Titan2Parts (the signature permission is declared there) -->
+    <uses-permission android:name="org.titan2.permission.REAR_CONFIG" />
+    <!-- gestures: input monitor on the rear display, KEYCODE_BACK injection, haptic feedback -->
+    <uses-permission android:name="android.permission.MONITOR_INPUT" />
+    <uses-permission android:name="android.permission.INJECT_EVENTS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- "Home"/recents from the service, task list of the rear display -->
+    <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />
+    <uses-permission android:name="android.permission.REAL_GET_TASKS" />
+    <uses-permission android:name="android.permission.START_TASKS_FROM_RECENTS" />
+    <uses-permission android:name="android.permission.REMOVE_TASKS" />
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
+    <!-- app list -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- quick panel: rear display brightness, Wi-Fi, "Do not disturb", sound, sleep -->
+    <uses-permission android:name="android.permission.CONTROL_DISPLAY_BRIGHTNESS" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.NETWORK_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.MANAGE_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.DEVICE_POWER" />
+    <!-- lock state; unlocking from the rear screen (Titan2RearUnlockService) -->
+    <uses-permission android:name="android.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE" />
+    <uses-permission android:name="android.permission.CONTROL_KEYGUARD" />
+
+    <application
+        android:name=".RearApp"
+        android:label="@string/app_name"
+        android:icon="@drawable/ic_rear"
+        android:persistent="true"
+        android:defaultToDeviceProtectedStorage="true"
+        android:directBootAware="true">
+
+        <!-- rear display home screen (SECONDARY_HOME) -->
+        <activity
+            android:name=".RearHomeActivity"
+            android:theme="@style/RearTheme"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:resizeableActivity="true"
+            android:showWhenLocked="true"
+            android:stateNotNeeded="true"
+            android:directBootAware="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboard|keyboardHidden|navigation"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.SECONDARY_HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- simplified "Recents" of the rear display -->
+        <activity
+            android:name=".RearRecentsActivity"
+            android:theme="@style/RearTheme"
+            android:excludeFromRecents="true"
+            android:resizeableActivity="true"
+            android:taskAffinity="org.titan2.rear.recents"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
+        <!-- old settings action: redirect to Titan2Parts -->
+        <activity
+            android:name=".SettingsRedirectActivity"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.titan2.rear.SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".RearGestureService"
+            android:directBootAware="true"
+            android:exported="false" />
+
+        <!-- unread notification counter for the clock (access is granted in Titan2Parts) -->
+        <service
+            android:name=".RearNotificationListener"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

@@ -1,0 +1,169 @@
+From 772ed88a9946cfa4b4ec966178b0b28f8b21fdfd Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 21:08:22 +0300
+Subject: [PATCH] Titan 2: AxSandbox isolation hides installed apps and VPNs
+
+An app isolated in AxSandbox now sees only system apps, itself and other
+isolated apps (AppsFilter, before QUERY_ALL_PACKAGES), and never the
+device-specific org.titan2.* / org.lindroid.* apps. Isolated apps bypass
+every VPN (left out of its uid ranges and lockdown block ranges), and
+their processes are flagged at bind time so libcore hides VPN interfaces.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ core/java/android/app/ActivityThread.java     |  4 +++
+ .../server/am/ActivityManagerService.java     | 17 ++++++++++-
+ .../com/android/server/connectivity/Vpn.java  | 25 ++++++++++++++++
+ .../com/android/server/pm/AppsFilterBase.java | 29 +++++++++++++++++++
+ 4 files changed, 74 insertions(+), 1 deletion(-)
+
+diff --git a/core/java/android/app/ActivityThread.java b/core/java/android/app/ActivityThread.java
+index 0c6afb47a..e047726cb 100644
+--- a/core/java/android/app/ActivityThread.java
++++ b/core/java/android/app/ActivityThread.java
+@@ -1461,6 +1461,10 @@ public final class ActivityThread extends ClientTransactionHandler
+             ApplicationSharedMemory.setInstance(instance);
+ 
+             setCoreSettings(coreSettings);
++            // Titan 2: isolated in AxSandbox -> java.net.NetworkInterface hides VPN interfaces
++            if (coreSettings != null && coreSettings.getBoolean("titan2_isolated")) {
++                System.setProperty("android.titan2.hide_vpn_interfaces", "true");
++            }
+ 
+             AppBindData data = new AppBindData();
+             data.processName = processName;
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index a4d452d03..d71636aef 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -2824,6 +2824,21 @@ public class ActivityManagerService extends IActivityManager.Stub
+         }
+     }
+ 
++    /**
++     * Titan 2: a process of an app isolated in AxSandbox is told so at bind time, so that libcore
++     * hides VPN interfaces from it (the app bypasses VPNs, see Vpn and ConnectivityService).
++     */
++    private Bundle coreSettingsForApp(ProcessRecord app) {
++        final Bundle coreSettings = mCoreSettingsObserver.getCoreSettings();
++        if (app.info == null || !com.android.server.wm.AxSandboxService.get()
++                .isPackageSandboxed(app.info.packageName)) {
++            return coreSettings;
++        }
++        final Bundle isolated = coreSettings != null ? new Bundle(coreSettings) : new Bundle();
++        isolated.putBoolean("titan2_isolated", true);
++        return isolated;
++    }
++
+     /**
+      * Initialize the application bind args. These are passed to each
+      * process when the bindApplication() IPC is sent to the process. They're
+@@ -4890,7 +4905,7 @@ public class ActivityManagerService extends IActivityManager.Stub
+                         preBindInfo.configuration,
+                         app.getCompat(),
+                         getCommonServicesLocked(app.isolated),
+-                        mCoreSettingsObserver.getCoreSettings(),
++                        coreSettingsForApp(app),
+                         buildSerial,
+                         autofillOptions,
+                         contentCaptureOptions,
+diff --git a/services/core/java/com/android/server/connectivity/Vpn.java b/services/core/java/com/android/server/connectivity/Vpn.java
+index 5320490cb..367abdc81 100644
+--- a/services/core/java/com/android/server/connectivity/Vpn.java
++++ b/services/core/java/com/android/server/connectivity/Vpn.java
+@@ -156,6 +156,7 @@ import com.android.server.DeviceIdleInternal;
+ import com.android.server.LocalServices;
+ import com.android.server.net.BaseNetworkObserver;
+ import com.android.server.utils.LazyJniRegistrar;
++import com.android.server.wm.AxSandboxService;
+ 
+ import libcore.io.IoUtils;
+ 
+@@ -1996,6 +1997,21 @@ public class Vpn {
+     void addUserToRanges(@NonNull Set<Range<Integer>> ranges, @UserIdInt int userId,
+             @Nullable List<String> allowedApplications,
+             @Nullable List<String> disallowedApplications) {
++        // Titan 2: apps isolated in AxSandbox bypass every VPN (and do not see it, see
++        // ConnectivityService): some apps refuse to work behind a VPN. This also keeps
++        // them out of the lockdown block ranges, so an always-on VPN does not cut them off.
++        final List<String> isolated = isolatedPackages();
++        if (!isolated.isEmpty()) {
++            if (allowedApplications != null) {
++                allowedApplications = new ArrayList<>(allowedApplications);
++                allowedApplications.removeAll(isolated);
++            } else {
++                final List<String> disallowed = disallowedApplications != null
++                        ? new ArrayList<>(disallowedApplications) : new ArrayList<>();
++                disallowed.addAll(isolated);
++                disallowedApplications = disallowed;
++            }
++        }
+         if (allowedApplications != null) {
+             // Add ranges covering all UIDs for allowedApplications.
+             int start = -1, stop = -1;
+@@ -2030,6 +2046,15 @@ public class Vpn {
+         }
+     }
+ 
++    private static List<String> isolatedPackages() {
++        try {
++            return AxSandboxService.get().getSandboxedPackages();
++        } catch (RuntimeException e) {
++            // sandbox not initialized yet (early always-on VPN)
++            return Collections.emptyList();
++        }
++    }
++
+     // Returns the subset of the full list of active UID ranges the VPN applies to (mVpnUsers) that
+     // apply to userId.
+     private static List<Range<Integer>> uidRangesForUser(int userId,
+diff --git a/services/core/java/com/android/server/pm/AppsFilterBase.java b/services/core/java/com/android/server/pm/AppsFilterBase.java
+index de6fb77d7..103b9cdb0 100644
+--- a/services/core/java/com/android/server/pm/AppsFilterBase.java
++++ b/services/core/java/com/android/server/pm/AppsFilterBase.java
+@@ -421,6 +421,29 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
+         return !canAccessHiddenPackages(snapshot, callingUid, callingSetting);
+     }
+ 
++    /**
++     * Titan 2: an app isolated in AxSandbox sees only system apps, itself and other isolated
++     * apps (isolated apps can still see each other), not what else is installed.
++     * Device-specific system apps that would give the custom firmware away stay hidden too.
++     */
++    private static boolean hideFromIsolatedCaller(@Nullable Object callingSetting,
++            @NonNull PackageStateInternal targetPkgSetting) {
++        if (!(callingSetting instanceof PackageStateInternal)) {
++            return false;
++        }
++        final AxSandboxService sandbox = AxSandboxService.get();
++        if (!sandbox.isPackageSandboxed(
++                ((PackageStateInternal) callingSetting).getPackageName())) {
++            return false;
++        }
++        final String targetPackageName = targetPkgSetting.getPackageName();
++        if (targetPkgSetting.isSystem()) {
++            return targetPackageName.startsWith("org.titan2.")
++                    || targetPackageName.startsWith("org.lindroid.");
++        }
++        return !sandbox.isPackageSandboxed(targetPackageName);
++    }
++
+     private static boolean canAccessHiddenPackages(@NonNull Computer snapshot, int callingUid,
+             @Nullable Object callingSetting) {
+         final int callingAppId = UserHandle.getAppId(callingUid);
+@@ -508,6 +531,12 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
+             if (targetAppId < Process.FIRST_APPLICATION_UID) {
+                 return false;
+             }
++            if (hideFromIsolatedCaller(callingSetting, targetPkgSetting)) {
++                if (DEBUG_LOGGING || mFeatureConfig.isLoggingEnabled(callingAppId)) {
++                    log(callingSetting, targetPkgSetting, "BLOCKED (isolated caller)");
++                }
++                return true;
++            }
+             if (Process.isSdkSandboxUid(callingAppId)) {
+                 final int targetUid = UserHandle.getUid(userId, targetAppId);
+                 // we only allow sdk sandbox processes access to forcequeryable packages or
+-- 
+2.56.0
+

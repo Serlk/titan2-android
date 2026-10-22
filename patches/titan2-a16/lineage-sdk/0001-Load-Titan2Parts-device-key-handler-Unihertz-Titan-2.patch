@@ -1,0 +1,33 @@
+From f8f7a7c47de1c727211c4fa0c37635e0ee8fcb3d Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Sun, 18 Oct 2026 14:48:21 +0300
+Subject: [PATCH] Load Titan2Parts device key handler (Unihertz Titan 2 side
+ keys)
+
+Missing APK (other devices) is skipped by PhoneWindowManager with a warning.
+---
+ lineage/res/res/values/config.xml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/lineage/res/res/values/config.xml b/lineage/res/res/values/config.xml
+index 052c2c0..1474fb7 100644
+--- a/lineage/res/res/values/config.xml
++++ b/lineage/res/res/values/config.xml
+@@ -115,11 +115,14 @@
+     <!-- Paths to the libraries that contain device specific key handlers -->
+     <string-array name="config_deviceKeyHandlerLibs" translatable="false">
+         <item>/system_ext/priv-app/LineageParts/LineageParts.apk</item>
++        <!-- Unihertz Titan 2: programmable side keys (vendor/titan2/Titan2Parts) -->
++        <item>/system_ext/priv-app/Titan2Parts/Titan2Parts.apk</item>
+     </string-array>
+ 
+     <!-- Names of the key handler classes -->
+     <string-array name="config_deviceKeyHandlerClasses" translatable="false">
+         <item>org.lineageos.lineageparts.gestures.KeyHandler</item>
++        <item>org.titan2.parts.KeyHandler</item>
+     </string-array>
+ 
+     <!-- Hardware keys present on the device, stored as a bit field.
+-- 
+2.56.0
+

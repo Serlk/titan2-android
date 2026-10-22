@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0
+MTK := $(DEVICE_MODULES_PATH)/drivers/misc/mediatek
+
+ccflags-y += -I$(src) -I$(src)/../eccci/inc -I$(MTK)/include -I$(MTK)/rps
+
+obj-m += ccmni.o

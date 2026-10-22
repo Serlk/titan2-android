@@ -1,0 +1,12 @@
+// The APK is downloaded by scripts/fetch-plektra.sh (version and sha256 are pinned there).
+// presigned: the author's signature is kept, updates from GitHub install over the system copy.
+android_app_import {
+    name: "Plektra",
+    apk: "Plektra.apk",
+    presigned: true,
+    // targetSdk >= 30: v2 signature, the APK is installed as is (no zipalign/repacking)
+    preprocessed: true,
+    dex_preopt: {
+        enabled: false,
+    },
+}

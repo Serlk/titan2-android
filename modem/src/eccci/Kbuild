@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: GPL-2.0
+# ccci_md_all.ko (stack core: fsm, port, hif dispatcher, udc), ccci_auxadc.ko;
+# HIF modules in hif/, the SCP part of the FSM in fsm/.
+MTK := $(DEVICE_MODULES_PATH)/drivers/misc/mediatek
+
+subdir-ccflags-y += -I$(src)/inc -I$(MTK)/include -I$(src)/fsm -I$(src)/hif
+ccflags-y += -I$(src) -I$(src)/port -I$(src)/udc -I$(src)/udc/udc_lib_inc \
+	-I$(src)/../ccmni \
+	-I$(MTK)/conn_md/include -I$(MTK)/scp/include -I$(MTK)/scp/rv \
+	-I$(MTK)/memory-amms -I$(MTK)/mdpm -I$(MTK)/pbm -I$(MTK)/slbc \
+	-I$(MTK)/pmic -I$(DEVICE_MODULES_PATH)/drivers/clk/mediatek
+
+obj-m += ccci_auxadc.o
+obj-m += ccci_md_all.o
+ccci_md_all-y := ccci_core.o ccci_bm.o ccci_modem.o \
+	udc/udc.o \
+	hif/ccci_hif.o \
+	port/port_cfg.o \
+	port/port_char.o \
+	port/port_ctlmsg.o \
+	port/port_udc.o \
+	port/port_ipc.o \
+	port/port_net.o \
+	port/port_poller.o \
+	port/port_proxy.o \
+	port/port_rpc.o \
+	port/port_smem.o \
+	port/port_sysmsg.o \
+	port/ccci_swtp.o \
+	port/port_kernel_interface.o \
+	fsm/ccci_fsm.o \
+	fsm/ccci_fsm_ioctl.o \
+	fsm/ccci_fsm_monitor.o \
+	fsm/ccci_fsm_poller.o \
+	fsm/ccci_fsm_ee.o \
+	fsm/ccci_fsm_sys.o \
+	fsm/mdee_dumper_v6.o \
+	fsm/modem_sys1.o \
+	fsm/md_sys1_platform.o \
+	fsm/ap_md_reg_dump.o \
+	fsm/ap_md_mem.o
+
+obj-m += fsm/ hif/

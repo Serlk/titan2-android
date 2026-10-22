@@ -1,0 +1,39 @@
+// RearShell: the Titan 2 rear screen shell (410x502): clock, favorites, app list,
+// its own navigation gestures over any app on the rear screen, JSON themes.
+// All settings and themes live in Titan2Parts (provider org.titan2.parts.rear), only the UI is here.
+android_app {
+    name: "RearShell",
+    srcs: ["src/**/*.java"],
+    resource_dirs: ["res"],
+    static_libs: [
+        // spring physics for dragging (the sheet, the app list, PIN entry)
+        "androidx.dynamicanimation_dynamicanimation",
+        "titan2-rear-common",
+    ],
+    certificate: "platform",
+    platform_apis: true,
+    privileged: true,
+    system_ext_specific: true,
+    optimize: {
+        enabled: false,
+    },
+    required: ["privapp-permissions-org.titan2.rear.xml"],
+}
+
+// Shared by RearShell and Titan2Parts: setting keys, provider contract, theme schema,
+// clock faces (Titan2Parts draws its preview with them).
+java_library {
+    name: "titan2-rear-common",
+    srcs: ["common/src/**/*.java"],
+    sdk_version: "current",
+    installable: false,
+}
+
+// ro.control_privapp_permissions=enforce: without this list signature|privileged permissions
+// are not granted (and system_server crashes at boot)
+prebuilt_etc {
+    name: "privapp-permissions-org.titan2.rear.xml",
+    src: "privapp-permissions-org.titan2.rear.xml",
+    sub_dir: "permissions",
+    system_ext_specific: true,
+}

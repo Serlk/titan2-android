@@ -1,0 +1,85 @@
+From f011684f001e5f722af4d1facf69e87ea83936ac Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 13:21:58 +0300
+Subject: [PATCH] app/DisplayActivity: keep the IME out of the key path,
+ keyboard Back goes to Linux
+
+DisplayActivity has no text editor, but its window is an IME target, so an
+IME for hardware keyboards (Plektra on the Unihertz Titan 2) receives every
+key first and handles it as "no editable field": the first Ctrl (Fn) tap
+is swallowed by its nav-mode handler, a double tap turns letters into
+scancode-less DPAD events, Sym toggles launcher shortcuts. Set
+FLAG_ALT_FOCUSABLE_IM so raw scancodes always reach the container, which
+implements the keyboard layers itself.
+
+The Back key of a physical keyboard (scancode 158) was forwarded to Linux
+and also opened the stop-container dialog. Consume it after forwarding;
+the navigation bar / back gesture (virtual device, no scancode) keeps the
+Android back handling.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../java/org/lindroid/ui/DisplayActivity.java | 24 +++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/app/app/src/main/java/org/lindroid/ui/DisplayActivity.java b/app/app/src/main/java/org/lindroid/ui/DisplayActivity.java
+index 654c6ac..0cf1d4a 100644
+--- a/app/app/src/main/java/org/lindroid/ui/DisplayActivity.java
++++ b/app/app/src/main/java/org/lindroid/ui/DisplayActivity.java
+@@ -34,6 +34,7 @@ import android.view.SurfaceView;
+ import android.view.View;
+ import android.view.WindowInsets;
+ import android.view.WindowInsetsController;
++import android.view.WindowManager;
+ import android.graphics.Canvas;
+ import android.view.Choreographer;
+ 
+@@ -84,6 +85,11 @@ public class DisplayActivity extends AppCompatActivity implements SurfaceHolder.
+         }
+         mSurfaceView = new SurfaceView(this);
+         setContentView(mSurfaceView);
++        // The window has no text editor: keep the IME out of the key path. Otherwise an IME
++        // for hardware keyboards (e.g. Plektra) sees every key first and may consume or
++        // rewrite it (one-shot modifiers, nav mode) before the raw scancode reaches Linux,
++        // where the container implements the keyboard layers itself.
++        getWindow().addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+         final WindowInsetsController controller = getWindow().getInsetsController();
+         if (controller != null) {
+             controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+@@ -338,15 +344,33 @@ public class DisplayActivity extends AppCompatActivity implements SurfaceHolder.
+     @Override
+     public boolean onKeyDown(int keyCode, KeyEvent event) {
+         nativeKeyEvent(mDisplayID, event.getScanCode(), true);
++        if (isHardwareKeyboardBack(keyCode, event)) {
++            return true;
++        }
+         return super.onKeyDown(keyCode, event);
+     }
+ 
+     @Override
+     public boolean onKeyUp(int keyCode, KeyEvent event) {
+         nativeKeyEvent(mDisplayID, event.getScanCode(), false);
++        if (isHardwareKeyboardBack(keyCode, event)) {
++            return true;
++        }
+         return super.onKeyUp(keyCode, event);
+     }
+ 
++    // A Back key on a physical keyboard (Titan 2: scancode 158) belongs to the Linux session,
++    // which has already received it; only the navigation bar / back gesture (virtual device,
++    // no scancode) triggers the Android back handling (stop-container dialog).
++    private static boolean isHardwareKeyboardBack(int keyCode, KeyEvent event) {
++        if (keyCode != KeyEvent.KEYCODE_BACK || event.getScanCode() == 0) {
++            return false;
++        }
++        InputDevice device = event.getDevice();
++        return device != null && !device.isVirtual()
++                && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC;
++    }
++
+     @Override
+     public void onPointerCaptureChanged(boolean hasCapture) {
+         super.onPointerCaptureChanged(hasCapture);
+-- 
+2.56.0
+

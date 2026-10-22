@@ -1,0 +1,2 @@
+# Titan 2: the Func2 programmable side key (firmware label: FUNC2, scan code 250, verified with getevent).
+key 250   MACRO_2

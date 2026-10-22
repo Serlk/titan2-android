@@ -1,0 +1,6 @@
+# Titan 2: PMIC buttons. 116 is power (as in Generic.kl), 249 is the Func1 programmable side
+# key (firmware label: FUNC1, verified with getevent 2026-10-18), 250 is declared on this device but
+# arrives from gpio_key-func. MACRO_1/2 are codes free in A16 for our key handler.
+key 116   POWER
+key 249   MACRO_1
+key 250   MACRO_2

@@ -1,0 +1,52 @@
+From f66a145dc23e717433e007d1fa350fabf315e201 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 17:00:03 +0300
+Subject: [PATCH] Launcher3: honour the framework's capped smallest width
+ (Titan 2)
+
+Tablet detection uses display bounds and density directly; also require
+the configuration's smallestScreenWidthDp, which the framework caps via
+persist.sys.titan2.max_sw_dp, so all apps opens full width as on a phone.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/com/android/launcher3/util/DisplayController.java       | 6 +++++-
+ .../android/launcher3/util/window/WindowManagerProxy.java   | 5 ++++-
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/src/com/android/launcher3/util/DisplayController.java b/src/com/android/launcher3/util/DisplayController.java
+index f2a30ea..f918182 100644
+--- a/src/com/android/launcher3/util/DisplayController.java
++++ b/src/com/android/launcher3/util/DisplayController.java
+@@ -579,7 +579,11 @@ public class DisplayController {
+          * Returns {@code true} if the bounds represent a tablet.
+          */
+         public boolean isTablet(WindowBounds bounds) {
+-            return smallestSizeDp(bounds) >= MIN_TABLET_WIDTH
++            return (smallestSizeDp(bounds) >= MIN_TABLET_WIDTH
++                    // Titan 2: honour the framework's capped smallestScreenWidthDp
++                    // (persist.sys.titan2.max_sw_dp) so low density does not mean tablet.
++                    && context.getResources().getConfiguration().smallestScreenWidthDp
++                            >= MIN_TABLET_WIDTH)
+                     // External displays should always be considered tablet.
+                     || context.getDisplay().getDisplayId() != DEFAULT_DISPLAY;
+         }
+diff --git a/src/com/android/launcher3/util/window/WindowManagerProxy.java b/src/com/android/launcher3/util/window/WindowManagerProxy.java
+index 68ed670..67ee9e7 100644
+--- a/src/com/android/launcher3/util/window/WindowManagerProxy.java
++++ b/src/com/android/launcher3/util/window/WindowManagerProxy.java
+@@ -335,7 +335,10 @@ public class WindowManagerProxy {
+             systemRes = context.createConfigurationContext(conf).getResources();
+         }
+ 
+-        boolean isTablet = swDp >= MIN_TABLET_WIDTH;
++        // Titan 2: honour the framework's capped smallestScreenWidthDp, as in DisplayController.
++        boolean isTablet = swDp >= MIN_TABLET_WIDTH
++                && context.getResources().getConfiguration().smallestScreenWidthDp
++                        >= MIN_TABLET_WIDTH;
+         boolean isTabletOrGesture = isTablet || isGestureNav(context);
+ 
+         // Use the status bar height resources because current system API to get the status bar
+-- 
+2.56.0
+

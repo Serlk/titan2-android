@@ -1,0 +1,2 @@
+external/libhybris/compat/ui/Android.mk
+external/libhybris/compat/hwc2/Android.mk

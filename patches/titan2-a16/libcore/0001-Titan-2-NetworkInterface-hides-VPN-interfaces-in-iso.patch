@@ -1,0 +1,50 @@
+From 8d1ebdb0b99d29d12a1845cddd6e58d3929481c0 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 21:08:22 +0300
+Subject: [PATCH] Titan 2: NetworkInterface hides VPN interfaces in isolated
+ apps
+
+When ActivityThread marks the process as isolated in AxSandbox
+(android.titan2.hide_vpn_interfaces), tun/tap/wg/ppp/ipsec/l2tp
+interfaces are left out of every NetworkInterface lookup.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ojluni/src/main/java/java/net/NetworkInterface.java | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/ojluni/src/main/java/java/net/NetworkInterface.java b/ojluni/src/main/java/java/net/NetworkInterface.java
+index c2b2e58..8c1b33a 100644
+--- a/ojluni/src/main/java/java/net/NetworkInterface.java
++++ b/ojluni/src/main/java/java/net/NetworkInterface.java
+@@ -450,6 +450,12 @@ public final class NetworkInterface {
+     // BEGIN Android-changed: Rewrote NetworkInterface on top of Libcore.io.
+     // private native static NetworkInterface[] getAll()
+     //    throws SocketException;
++    private static boolean isVpnInterfaceName(String name) {
++        return name.startsWith("tun") || name.startsWith("tap") || name.startsWith("wg")
++                || name.startsWith("ppp") || name.startsWith("ipsec")
++                || name.startsWith("utun") || name.startsWith("l2tp");
++    }
++
+     private static NetworkInterface[] getAll() throws SocketException {
+         // Group Ifaddrs by interface name.
+         Map<String, List<StructIfaddrs>> inetMap = new HashMap<>();
+@@ -465,8 +471,14 @@ public final class NetworkInterface {
+             throw e.rethrowAsSocketException();
+         }
+ 
++        // Titan 2: apps isolated in AxSandbox bypass VPNs and must not see their interfaces.
++        final boolean hideVpn = "true".equals(
++                System.getProperty("android.titan2.hide_vpn_interfaces"));
+         for (StructIfaddrs ifa : ifaddrs) {
+             String name = ifa.ifa_name;
++            if (hideVpn && isVpnInterfaceName(name)) {
++                continue;
++            }
+ 
+             List<StructIfaddrs> ifas;
+             if ((ifas = inetMap.get(name)) == null) {
+-- 
+2.56.0
+

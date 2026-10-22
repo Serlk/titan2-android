@@ -1,0 +1,143 @@
+From e82259a40eac15ea907f300cf6aeb789d3405e9d Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 19:55:56 +0300
+Subject: [PATCH] drm/lindroid: fall back to a timer vblank when the client
+ stops vsync
+
+While LindroidUI is in the background it stops sending EVDI_VSYNC but
+keeps the display powered, so each commit of the container compositor
+waited out the 100 ms vblank timeout and hit the drm_atomic_helper WARN
+twice a second, flooding the kernel log. Arm a 50 ms hrtimer after each
+commit; a client vsync cancels it, otherwise it delivers the vblank.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ drivers/gpu/drm/lindroid/evdi_drv.h     |  8 ++++++
+ drivers/gpu/drm/lindroid/evdi_ioctl.c   |  1 +
+ drivers/gpu/drm/lindroid/evdi_modeset.c | 37 +++++++++++++++++++++++++
+ 3 files changed, 46 insertions(+)
+
+diff --git a/drivers/gpu/drm/lindroid/evdi_drv.h b/drivers/gpu/drm/lindroid/evdi_drv.h
+index fb17e8475..6fb44f9b3 100644
+--- a/drivers/gpu/drm/lindroid/evdi_drv.h
++++ b/drivers/gpu/drm/lindroid/evdi_drv.h
+@@ -22,6 +22,7 @@
+ #include <linux/slab.h>
+ #include <linux/fs.h>
+ #include <linux/wait.h>
++#include <linux/hrtimer.h>
+ #include <linux/poll.h>
+ #include <linux/bitops.h>
+ #include <linux/jiffies.h>
+@@ -297,6 +298,12 @@ struct evdi_device {
+ 	struct drm_device *ddev;
+ 	struct drm_connector *connector[LINDROID_MAX_CONNECTORS];
+ 	struct drm_simple_display_pipe pipe[LINDROID_MAX_CONNECTORS];
++	/* vblank when the client stops sending EVDI_VSYNC (LindroidUI in background) */
++	struct evdi_vblank_fallback {
++		struct hrtimer timer;
++		struct evdi_device *evdi;
++		int slot;
++	} vblank_fallback[LINDROID_MAX_CONNECTORS];
+ 
+ 	int dev_index;
+ 
+@@ -394,6 +401,7 @@ int evdi_queue_swap_event(struct evdi_device *evdi, int id, int display_id, u32
+ int evdi_queue_destroy_event(struct evdi_device *evdi, int id, struct drm_file *owner);
+ int evdi_ioctl_vsync(struct drm_device *dev, void *data, struct drm_file *file);
+ int evdi_ioctl_set_power_mode(struct drm_device *dev, void *data, struct drm_file *file);
++void evdi_vblank_fallback_cancel(struct evdi_device *evdi, int slot);
+ 
+ /* evdi_event.c */
+ int evdi_event_init(struct evdi_device *evdi);
+diff --git a/drivers/gpu/drm/lindroid/evdi_ioctl.c b/drivers/gpu/drm/lindroid/evdi_ioctl.c
+index daf9694c8..e84be347b 100644
+--- a/drivers/gpu/drm/lindroid/evdi_ioctl.c
++++ b/drivers/gpu/drm/lindroid/evdi_ioctl.c
+@@ -1097,6 +1097,7 @@ int evdi_ioctl_vsync(struct drm_device *dev,
+ 
+ 	crtc = &evdi->pipe[slot].crtc;
+ 
++	evdi_vblank_fallback_cancel(evdi, slot);
+ 	if (drm_crtc_vblank_get(crtc) == 0) {
+ 		drm_crtc_handle_vblank(crtc);
+ 		drm_crtc_vblank_put(crtc);
+diff --git a/drivers/gpu/drm/lindroid/evdi_modeset.c b/drivers/gpu/drm/lindroid/evdi_modeset.c
+index fcc7695b2..ff018a21a 100644
+--- a/drivers/gpu/drm/lindroid/evdi_modeset.c
++++ b/drivers/gpu/drm/lindroid/evdi_modeset.c
+@@ -48,9 +48,34 @@ static void evdi_pipe_enable(struct drm_simple_display_pipe *pipe,
+ 
+ static void evdi_pipe_disable(struct drm_simple_display_pipe *pipe)
+ {
++	struct evdi_device *evdi = pipe->crtc.dev->dev_private;
++
++	hrtimer_cancel(&evdi->vblank_fallback[pipe - &evdi->pipe[0]].timer);
+ 	drm_crtc_vblank_off(&pipe->crtc);
+ }
+ 
++/*
++ * Titan 2: vblank normally comes from the client (EVDI_VSYNC). While LindroidUI is in the
++ * background it stops, but the display stays powered, so every commit of the container's
++ * compositor waited out the 100 ms vblank timeout and hit a WARN twice a second. If the
++ * client has not delivered a vblank EVDI_FALLBACK_VBLANK_MS after a commit, deliver it here.
++ */
++#define EVDI_FALLBACK_VBLANK_MS 50
++
++static enum hrtimer_restart evdi_vblank_fallback_fn(struct hrtimer *timer)
++{
++	struct evdi_vblank_fallback *vf =
++		container_of(timer, struct evdi_vblank_fallback, timer);
++
++	drm_crtc_handle_vblank(&vf->evdi->pipe[vf->slot].crtc);
++	return HRTIMER_NORESTART;
++}
++
++void evdi_vblank_fallback_cancel(struct evdi_device *evdi, int slot)
++{
++	hrtimer_try_to_cancel(&evdi->vblank_fallback[slot].timer);
++}
++
+ static __always_inline int evdi_pipe_slot(const struct evdi_device *evdi,
+ 			const struct drm_simple_display_pipe *pipe)
+ {
+@@ -108,6 +133,8 @@ static void evdi_pipe_update(struct drm_simple_display_pipe *pipe,
+ 			drm_crtc_send_vblank_event(crtc, event);
+ 		spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
+ 	}
++	hrtimer_start(&evdi->vblank_fallback[slot].timer, ms_to_ktime(EVDI_FALLBACK_VBLANK_MS),
++		      HRTIMER_MODE_REL);
+ 
+ 	if (!state || !fb || unlikely(!READ_ONCE(evdi->drm_client)))
+ 		return;
+@@ -239,6 +266,13 @@ int evdi_modeset_init(struct drm_device *dev)
+ 	}
+ #endif
+ 
++	for (i = 0; i < LINDROID_MAX_CONNECTORS; i++) {
++		hrtimer_init(&evdi->vblank_fallback[i].timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
++		evdi->vblank_fallback[i].timer.function = evdi_vblank_fallback_fn;
++		evdi->vblank_fallback[i].evdi = evdi;
++		evdi->vblank_fallback[i].slot = i;
++	}
++
+ 	drm_mode_config_reset(dev);
+ 
+ 	evdi_info("Modeset initialized for device %d", evdi->dev_index);
+@@ -254,10 +288,13 @@ int evdi_modeset_init(struct drm_device *dev)
+ void evdi_modeset_cleanup(struct drm_device *dev)
+ {
+ 	struct evdi_device *evdi = dev->dev_private;
++	int i;
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
+ 	drm_atomic_helper_shutdown(dev);
+ #endif
++	for (i = 0; i < LINDROID_MAX_CONNECTORS; i++)
++		hrtimer_cancel(&evdi->vblank_fallback[i].timer);
+ 	evdi_connector_cleanup(evdi);
+ 	drm_mode_config_cleanup(dev);
+ 
+-- 
+2.56.0
+

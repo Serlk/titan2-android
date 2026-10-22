@@ -1,0 +1,39 @@
+From 8d3eb0ad0778a73628213772b3b4e3b26ade1b37 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 11:39:23 +0300
+Subject: [PATCH] drm/lindroid: pin GEM pages on mmap
+
+drm_gem_mmap() does not call vm_ops->open, so obj->pages stayed NULL
+and the first access to a dumb buffer mapping (kwin QPainter scene,
+cursor plane) ended in VM_FAULT_SIGBUS. Pin on mmap; vm_close unpins.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ drivers/gpu/drm/lindroid/evdi_gem.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/lindroid/evdi_gem.c b/drivers/gpu/drm/lindroid/evdi_gem.c
+index 5f46904d7..c735e117e 100644
+--- a/drivers/gpu/drm/lindroid/evdi_gem.c
++++ b/drivers/gpu/drm/lindroid/evdi_gem.c
+@@ -211,6 +211,17 @@ int evdi_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
+ 	if (ret)
+ 		return ret;
+ 
++	/*
++	 * Titan 2: pin the pages for the lifetime of the mapping (evdi_gem_vm_close unpins them).
++	 * Without this obj->pages is empty and the first access to a dumb buffer (kwin QPainter, cursor)
++	 * ends in VM_FAULT_SIGBUS: drm_gem_mmap does not call vm_ops->open.
++	 */
++	ret = evdi_pin_pages(to_evdi_gem(vma->vm_private_data));
++	if (ret) {
++		drm_gem_vm_close(vma);
++		return ret;
++	}
++
+ #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
+ 	vm_flags_mod(vma, VM_MIXEDMAP | VM_DONTDUMP | VM_DONTEXPAND | VM_DONTCOPY,
+ 		     VM_PFNMAP);
+-- 
+2.56.0
+

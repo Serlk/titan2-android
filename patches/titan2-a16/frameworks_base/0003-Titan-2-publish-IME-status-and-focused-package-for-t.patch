@@ -1,0 +1,62 @@
+From b0ad98174663608c1a4a0f85f6d24363f85d8055 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 13:14:34 +0300
+Subject: [PATCH] Titan 2: publish IME status and focused package for the
+ keyboard touchpad
+
+Publish IME visibility and the focused package of the default display as
+sys.titan2.ime_visible / sys.titan2.focus for Titan2Parts. A failed
+property write is logged, not thrown under ImfLock.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../inputmethod/InputMethodManagerService.java     |  7 +++++++
+ .../java/com/android/server/wm/DisplayContent.java | 14 ++++++++++++++
+ 2 files changed, 21 insertions(+)
+
+diff --git a/services/core/java/com/android/server/inputmethod/InputMethodManagerService.java b/services/core/java/com/android/server/inputmethod/InputMethodManagerService.java
+index 68541bc73..34471cba0 100644
+--- a/services/core/java/com/android/server/inputmethod/InputMethodManagerService.java
++++ b/services/core/java/com/android/server/inputmethod/InputMethodManagerService.java
+@@ -2784,6 +2784,13 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
+         }
+         bindingController.setImeWindowVis(vis);
+         bindingController.setBackDisposition(backDisposition);
++        // Titan 2: keyboard touchpad (Titan2Parts) switches to cursor mode while an IME is active.
++        // Called under ImfLock: a failed property write must not throw from here.
++        try {
++            android.os.SystemProperties.set("sys.titan2.ime_visible", vis != 0 ? "1" : "0");
++        } catch (RuntimeException e) {
++            Slog.w(TAG, "sys.titan2.ime_visible", e);
++        }
+         updateSystemUiLocked(vis, backDisposition, userId);
+ 
+         final boolean dismissImeOnBackKeyPressed;
+diff --git a/services/core/java/com/android/server/wm/DisplayContent.java b/services/core/java/com/android/server/wm/DisplayContent.java
+index 701ec2a2c..aa6d08461 100644
+--- a/services/core/java/com/android/server/wm/DisplayContent.java
++++ b/services/core/java/com/android/server/wm/DisplayContent.java
+@@ -4063,6 +4063,20 @@ class DisplayContent extends RootDisplayArea implements WindowManagerPolicy.Disp
+                 mCurrentFocus, newFocus, getDisplayId(), Debug.getCallers(4));
+         final WindowState oldFocus = mCurrentFocus;
+         mCurrentFocus = newFocus;
++        if (isDefaultDisplay) {
++            // Titan 2: focused package for the per-app keyboard touchpad modes (Titan2Parts)
++            String focus = "";
++            if (newFocus != null) {
++                focus = newFocus.getOwningPackage();
++                if (focus == null) {
++                    focus = String.valueOf(newFocus.getWindowTag());
++                }
++            }
++            if (focus.length() > android.os.SystemProperties.PROP_VALUE_MAX) {
++                focus = focus.substring(0, android.os.SystemProperties.PROP_VALUE_MAX);
++            }
++            android.os.SystemProperties.set("sys.titan2.focus", focus);
++        }
+ 
+         if (newFocus != null) {
+             mWinAddedSinceNullFocus.clear();
+-- 
+2.56.0
+

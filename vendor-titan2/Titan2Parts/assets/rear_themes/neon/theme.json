@@ -1,0 +1,21 @@
+{
+  "schema": 2,
+  "name": "Neon",
+  "author": "Titan 2",
+  "description": "Purple night with pink and cyan, condensed font",
+  "colors": {
+    "background": "#05010F",
+    "onSurface": "#F5E9FF",
+    "onSurfaceVariant": "#00E5FF",
+    "primary": "#FF2BD6",
+    "onPrimary": "#05010F",
+    "secondary": "#00E5FF",
+    "elements": { "clock.minutes": "@primary", "clock.date": "@secondary" }
+  },
+  "typography": { "font": "sans-serif-condensed" },
+  "clock": { "face": "minimal", "digits": "bold" },
+  "wallpaper": { "type": "gradient", "gradient": ["#05010F", "#1A0433"], "angle": 180 },
+  "layout": { "columns": 3, "rows": 4, "iconShape": "squircle", "iconStyle": "mono",
+              "labels": false },
+  "animations": { "style": "expressive" }
+}

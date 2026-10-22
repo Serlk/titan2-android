@@ -1,0 +1,7 @@
+// Titan 2: the rear screen shell is the system SECONDARY_HOME instead of
+// SecondaryDisplayLauncher from Launcher3 (otherwise it takes the rear display).
+runtime_resource_overlay {
+    name: "Titan2RearHomeOverlay",
+    resource_dirs: ["res"],
+    product_specific: true,
+}

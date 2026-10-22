@@ -1,0 +1,34 @@
+From 1e579a77a72d1df9fcd7504478add84b3859e8f0 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 21:40:58 +0300
+Subject: [PATCH] lxc template: install device GPU stack and first-boot extras
+
+Run the device-shipped installers from /system_ext/usr/share/*/lindroid-gpu
+(e.g. Titan 2: libhybris libvulkan.so.1 for Vulkan on the Android driver,
+Zink for OpenGL) and */lindroid-steam (Steam through FEX-Emu, set up by a
+first-boot service), like plektra-linux.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lxc/template.sh | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/lxc/template.sh b/lxc/template.sh
+index 38142c5..6a75f2e 100755
+--- a/lxc/template.sh
++++ b/lxc/template.sh
+@@ -355,6 +355,11 @@ RULE
+   for d in /system_ext/usr/share/*/plektra-linux; do
+     [ -f "$d/install.sh" ] && sh "$d/install.sh" "$d" "$r" && break
+   done
++  # Device GPU stack (e.g. Titan 2: libhybris libvulkan.so.1 -> Vulkan on the Android driver, Zink
++  # for OpenGL) and first-boot extras (Steam through FEX-Emu), shipped by the device with installers.
++  for d in /system_ext/usr/share/*/lindroid-gpu /system_ext/usr/share/*/lindroid-steam; do
++    [ -f "$d/install.sh" ] && sh "$d/install.sh" "$d" "$r"
++  done
+ }
+ 
+ unpack_rootfs() {
+-- 
+2.56.0
+

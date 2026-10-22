@@ -1,0 +1,251 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Sun, 18 Oct 2026 20:00:00 +0300
+Subject: [PATCH] ConsumerIrService: transmit via /dev/lirc0 when available
+
+Some devices (Unihertz Titan 2) ship only the AOSP example IConsumerIr
+HAL, which accepts patterns but never drives the emitter, while the
+kernel exposes a working rc-core LIRC transmitter at /dev/lirc0.
+
+Prefer /dev/lirc0 when it opens and reports LIRC_CAN_SEND_PULSE:
+set the carrier with LIRC_SET_SEND_CARRIER (when supported) and write
+the pattern in pulse mode. A trailing space is dropped (LIRC requires
+an odd sample count) and long patterns are split into chunks that fit
+rc-core limits (1024 samples, 500 ms), with the separating space timed
+in userspace. getCarrierFrequencies() reports 30-60 kHz in this mode.
+
+Falls back to the AIDL/HIDL HAL path otherwise. Setting
+persist.sys.consumerir.lirc=false disables the LIRC path.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+diff --git a/services/core/java/com/android/server/ConsumerIrService.java b/services/core/java/com/android/server/ConsumerIrService.java
+index 0302655..2292a7b 100644
+--- a/services/core/java/com/android/server/ConsumerIrService.java
++++ b/services/core/java/com/android/server/ConsumerIrService.java
+@@ -28,6 +28,7 @@ import android.hardware.ir.IConsumerIr;
+ import android.os.PowerManager;
+ import android.os.RemoteException;
+ import android.os.ServiceManager;
++import android.os.SystemProperties;
+ import android.util.Slog;
+ 
+ import com.android.server.utils.LazyJniRegistrar;
+@@ -37,9 +38,15 @@ public class ConsumerIrService extends IConsumerIrService.Stub {
+ 
+     private static final int MAX_XMIT_TIME = 2000000; /* in microseconds */
+ 
++    // Carrier range reported when transmitting through /dev/lirc0 directly.
++    private static final int LIRC_MIN_CARRIER_FREQ = 30000;
++    private static final int LIRC_MAX_CARRIER_FREQ = 60000;
++
+     private static native boolean getHidlHalService();
+     private static native int halTransmit(int carrierFrequency, int[] pattern);
+     private static native int[] halGetCarrierFrequencies();
++    private static native boolean lircOpen();
++    private static native int lircTransmit(int carrierFrequency, int[] pattern);
+ 
+     static {
+         LazyJniRegistrar.registerConsumerIrService();
+@@ -50,6 +57,7 @@ public class ConsumerIrService extends IConsumerIrService.Stub {
+     private final boolean mHasNativeHal;
+     private final Object mHalLock = new Object();
+     private IConsumerIr mAidlService = null;
++    private boolean mUseLirc = false;
+ 
+     ConsumerIrService(Context context) {
+         mContext = context;
+@@ -68,6 +76,13 @@ public class ConsumerIrService extends IConsumerIrService.Stub {
+     }
+ 
+     private boolean getHalService() {
++        // Prefer a TX capable /dev/lirc0: some vendors ship only the stub
++        // example HAL, which accepts patterns but never drives the emitter.
++        if (SystemProperties.getBoolean("persist.sys.consumerir.lirc", true) && lircOpen()) {
++            mUseLirc = true;
++            return true;
++        }
++
+         // Attempt to get the AIDL HAL service first
+         final String fqName = IConsumerIr.DESCRIPTOR + "/default";
+         mAidlService = IConsumerIr.Stub.asInterface(
+@@ -109,7 +124,13 @@ public class ConsumerIrService extends IConsumerIrService.Stub {
+ 
+         // Right now there is no mechanism to ensure fair queing of IR requests
+         synchronized (mHalLock) {
+-            if (mAidlService != null) {
++            if (mUseLirc) {
++                int err = lircTransmit(carrierFrequency, pattern);
++
++                if (err < 0) {
++                    Slog.e(TAG, "Error transmitting via lirc: " + err);
++                }
++            } else if (mAidlService != null) {
+                 try {
+                     mAidlService.transmit(carrierFrequency, pattern);
+                 } catch (RemoteException ignore) {
+@@ -133,7 +154,9 @@ public class ConsumerIrService extends IConsumerIrService.Stub {
+         throwIfNoIrEmitter();
+ 
+         synchronized(mHalLock) {
+-            if (mAidlService != null) {
++            if (mUseLirc) {
++                return new int[] { LIRC_MIN_CARRIER_FREQ, LIRC_MAX_CARRIER_FREQ };
++            } else if (mAidlService != null) {
+                 try {
+                     ConsumerIrFreqRange[] output = mAidlService.getCarrierFreqs();
+                     if (output.length <= 0) {
+diff --git a/services/core/jni/com_android_server_ConsumerIrService.cpp b/services/core/jni/com_android_server_ConsumerIrService.cpp
+index d068ec0..bfb2ffa 100644
+--- a/services/core/jni/com_android_server_ConsumerIrService.cpp
++++ b/services/core/jni/com_android_server_ConsumerIrService.cpp
+@@ -20,12 +20,20 @@
+ #include <nativehelper/JNIHelp.h>
+ #include "android_runtime/AndroidRuntime.h"
+ 
++#include <errno.h>
++#include <fcntl.h>
+ #include <stdlib.h>
++#include <string.h>
++#include <sys/ioctl.h>
++#include <unistd.h>
++#include <linux/lirc.h>
+ #include <utils/misc.h>
+ #include <utils/Log.h>
+ #include <android/hardware/ir/1.0/IConsumerIr.h>
+ #include <nativehelper/ScopedPrimitiveArray.h>
+ 
++#include <vector>
++
+ using ::android::hardware::ir::V1_0::IConsumerIr;
+ using ::android::hardware::ir::V1_0::ConsumerIrFreqRange;
+ using ::android::hardware::hidl_vec;
+@@ -34,6 +42,116 @@ namespace android {
+ 
+ static sp<IConsumerIr> mHal;
+ 
++/*
++ * Direct LIRC transmitter, used when the kernel exposes a TX capable
++ * /dev/lirc0 (rc-core). This bypasses a vendor IConsumerIr HAL that does
++ * not actually drive the hardware.
++ */
++static const char* const LIRC_DEVICE = "/dev/lirc0";
++// rc-core rejects writes with more than 1024 samples (an odd count is
++// required) or with a total duration above IR_MAX_DURATION (500 ms).
++static const size_t LIRC_MAX_SAMPLES = 1023;
++static const uint64_t LIRC_MAX_DURATION_US = 500000;
++
++static int mLircFd = -1;
++static bool mLircCanSetCarrier = false;
++
++static jboolean lircOpen(JNIEnv * /* env */, jobject /* obj */) {
++    int fd = TEMP_FAILURE_RETRY(open(LIRC_DEVICE, O_RDWR | O_CLOEXEC));
++    if (fd < 0) {
++        if (errno != ENOENT) {
++            ALOGW("Unable to open %s: %s", LIRC_DEVICE, strerror(errno));
++        }
++        return false;
++    }
++
++    uint32_t features = 0;
++    if (ioctl(fd, LIRC_GET_FEATURES, &features) < 0 ||
++            !(features & LIRC_CAN_SEND_PULSE)) {
++        ALOGW("%s cannot transmit (features 0x%x)", LIRC_DEVICE, features);
++        close(fd);
++        return false;
++    }
++
++    uint32_t mode = LIRC_MODE_PULSE;
++    if (ioctl(fd, LIRC_SET_SEND_MODE, &mode) < 0) {
++        ALOGW("Unable to set pulse mode on %s: %s", LIRC_DEVICE, strerror(errno));
++    }
++
++    mLircCanSetCarrier = (features & LIRC_CAN_SET_SEND_CARRIER) != 0;
++    mLircFd = fd;
++    ALOGI("Using %s for IR transmission (features 0x%x)", LIRC_DEVICE, features);
++    return true;
++}
++
++static jint lircTransmit(JNIEnv *env, jobject /* obj */, jint carrierFrequency,
++   jintArray pattern) {
++    if (mLircFd < 0) {
++        return -ENODEV;
++    }
++    ScopedIntArrayRO cPattern(env, pattern);
++    if (cPattern.get() == NULL) {
++        return -EINVAL;
++    }
++
++    if (mLircCanSetCarrier) {
++        uint32_t freq = static_cast<uint32_t>(carrierFrequency);
++        if (ioctl(mLircFd, LIRC_SET_SEND_CARRIER, &freq) < 0) {
++            int err = errno;
++            ALOGE("Unable to set carrier %d: %s", carrierFrequency, strerror(err));
++            return -err;
++        }
++    }
++
++    // LIRC needs pulse/space pairs ending with a pulse: drop a trailing space.
++    size_t len = cPattern.size();
++    if (len == 0) {
++        return -EINVAL;
++    }
++    if (len % 2 == 0) {
++        len--;
++    }
++
++    // The pattern is sent in chunks that each end with a pulse; the space
++    // following a chunk is timed here. write() blocks until the chunk has
++    // been sent, so the gaps stay correct.
++    const jint *samples = cPattern.get();
++    std::vector<uint32_t> buf;
++    size_t i = 0;
++    while (i < len) {
++        // Start the chunk with a pulse, then add space/pulse pairs while the
++        // kernel limits allow it. Samples are known to be positive.
++        buf.clear();
++        buf.push_back(static_cast<uint32_t>(samples[i]));
++        uint64_t duration = buf.back();
++        i++;
++        while (i < len && buf.size() + 2 <= LIRC_MAX_SAMPLES &&
++                duration + samples[i] + samples[i + 1] <= LIRC_MAX_DURATION_US) {
++            duration += samples[i] + samples[i + 1];
++            buf.push_back(static_cast<uint32_t>(samples[i++]));
++            buf.push_back(static_cast<uint32_t>(samples[i++]));
++        }
++
++        size_t bytes = buf.size() * sizeof(uint32_t);
++        ssize_t ret = TEMP_FAILURE_RETRY(write(mLircFd, buf.data(), bytes));
++        if (ret < 0) {
++            int err = errno;
++            ALOGE("LIRC write failed: %s", strerror(err));
++            return -err;
++        }
++        if (static_cast<size_t>(ret) != bytes) {
++            ALOGE("LIRC short write: %zd of %zu", ret, bytes);
++            return -EIO;
++        }
++
++        if (i < len) {
++            // i points at the space separating this chunk from the next one.
++            usleep(static_cast<uint32_t>(samples[i++]));
++        }
++    }
++    return 0;
++}
++
+ static jboolean getHidlHalService(JNIEnv * /* env */, jobject /* obj */) {
+     // TODO(b/31632518)
+     mHal = IConsumerIr::tryGetService();
+@@ -87,6 +205,8 @@ static const JNINativeMethod method_table[] = {
+         {"getHidlHalService", "()Z", (void *)getHidlHalService},
+         {"halTransmit", "(I[I)I", (void *)halTransmit},
+         {"halGetCarrierFrequencies", "()[I", (void *)halGetCarrierFrequencies},
++        {"lircOpen", "()Z", (void *)lircOpen},
++        {"lircTransmit", "(I[I)I", (void *)lircTransmit},
+ };
+ 
+ int register_android_server_ConsumerIrService(JNIEnv *env) {
+-- 
+2.43.0
+

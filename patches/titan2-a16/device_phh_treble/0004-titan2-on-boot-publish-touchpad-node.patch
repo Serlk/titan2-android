@@ -1,0 +1,33 @@
+From fa517006997bb5ec97f8100773642049d5267d2a Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 02:02:01 +0300
+Subject: [PATCH] titan2-on-boot: publish keyboard touchpad node in
+ sys.titan2.touchpad
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ titan2-on-boot.sh | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/titan2-on-boot.sh b/titan2-on-boot.sh
+index f6a636c..6ff74e2 100755
+--- a/titan2-on-boot.sh
++++ b/titan2-on-boot.sh
+@@ -1,6 +1,14 @@
+ #!/system/bin/sh
+ # Unihertz Titan 2 (MT6878, Agold): started from phh-on-boot.sh after sys.boot_completed.
+ 
++# Touchpad under the keys: the path for Titan2Parts (TouchpadController in system_server). It
++# cannot read /sys/class/input/*/name itself: generic sysfs is closed to system_server (neverallow).
++for d in /sys/class/input/input*; do
++    if [ "$(cat $d/name)" = touchPad ]; then
++        for e in $d/event*; do setprop sys.titan2.touchpad /dev/input/${e##*/}; done
++    fi
++done
++
+ # Charge limit (Titan2Parts, uid system): the MTK "do not charge" node, root:root 0644 by default.
+ chown system:system /proc/mtk_battery_cmd/current_cmd
+ 
+-- 
+2.56.0
+

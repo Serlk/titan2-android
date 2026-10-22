@@ -1,0 +1,21 @@
+{
+  "schema": 2,
+  "name": "Amber terminal",
+  "author": "Titan 2",
+  "description": "Monochrome amber CRT look, monospace, seconds",
+  "colors": {
+    "background": "#0A0600",
+    "onSurface": "#FFB000",
+    "onSurfaceVariant": "#996A00",
+    "primary": "#FFD27F",
+    "onPrimary": "#0A0600",
+    "surface": "#FFB000/0.14",
+    "elements": { "clock.seconds": "@primary" }
+  },
+  "typography": { "font": "monospace" },
+  "clock": { "face": "digital_seconds", "seconds": true, "24h": true, "dateFormat": "dd MM",
+             "digits": "tabular",
+             "faces": { "digital_seconds": { "blink": true } } },
+  "layout": { "columns": 4, "rows": 4, "iconShape": "none", "iconStyle": "mono" },
+  "animations": { "style": "subtle" }
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Plektra (Titan 2)
+Comment=Plektra keyboard bar: modifier LEDs and SYM pages for the hardware keyboard
+Comment[ru]=Полоса Plektra: индикаторы модификаторов и страницы SYM аппаратной клавиатуры
+Exec=/usr/bin/python3 -I -B /usr/local/lib/plektra-linux/plektra-linux-im.py
+Type=Application
+Icon=input-keyboard
+NoDisplay=true
+X-KDE-Wayland-VirtualKeyboard=true

@@ -1,0 +1,44 @@
+From c4f702dba76fa7f3a2d287777e0e7bffd675e7d0 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 01:25:16 +0300
+Subject: [PATCH] lxc template: USB (libusb + CDC ACM/USB serial) passthrough
+
+Bind /dev/bus/usb (hotplug-safe) and allow USB (189), ttyACM (166) and ttyUSB (188)
+for both cgroup v1 and cgroup2 device controllers: RTL-SDR, Flipper Zero, NFC readers.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lxc/template.sh | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/lxc/template.sh b/lxc/template.sh
+index 019f9c0..7510939 100755
+--- a/lxc/template.sh
++++ b/lxc/template.sh
+@@ -391,6 +391,14 @@ lxc.cgroup.devices.allow = c 1:9 rwm
+ lxc.cgroup.devices.allow = c 136:* rwm
+ ### fuse
+ lxc.cgroup.devices.allow = c 10:229 rwm
++### USB for libusb (RTL-SDR, Flipper RPC, NFC readers) and USB serial (CDC ACM, FTDI/CH34x).
++### The cgroup2 keys too: GKI kernels run without the v1 devices controller.
++lxc.cgroup.devices.allow = c 189:* rwm
++lxc.cgroup.devices.allow = c 166:* rwm
++lxc.cgroup.devices.allow = c 188:* rwm
++lxc.cgroup2.devices.allow = c 189:* rwm
++lxc.cgroup2.devices.allow = c 166:* rwm
++lxc.cgroup2.devices.allow = c 188:* rwm
+ 
+ lxc.environment = CGROUP_MANAGER=systemd
+ 
+@@ -417,6 +425,8 @@ lxc.mount.entry = /dev/vndbinder dev/vndbinder none bind,optional,rw,create=file
+ lxc.mount.entry = /dev/pmsg0 dev/pmsg0 none bind,optional,rw,create=file
+ lxc.mount.entry = /dev/ashmem dev/ashmem none bind,optional,rw,create=file
+ lxc.mount.entry = /dev/input dev/input none rbind,optional,rw,create=dir
++# USB devices; nodes appear inside this dir, so hotplugged devices are visible too
++lxc.mount.entry = /dev/bus/usb dev/bus/usb none rbind,optional,rw,create=dir
+ lxc.mount.entry = selinuxfs sys/fs/selinux selinuxfs optional 0 0
+ lxc.mount.entry = /dev/binderfs dev/binderfs bind bind,create=dir,optional 0 0
+ 
+-- 
+2.56.0
+

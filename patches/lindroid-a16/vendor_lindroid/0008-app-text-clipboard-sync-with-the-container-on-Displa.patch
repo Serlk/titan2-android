@@ -1,0 +1,148 @@
+From d84df67361d8a00d73eb177661c53ee0fac77996 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 14:36:07 +0300
+Subject: [PATCH] app: text clipboard sync with the container on
+ DisplayActivity focus changes
+
+Android lets only the focused app read the clipboard, so the exchange
+happens when DisplayActivity gains or loses window focus, through the
+shared directory /data/lindroid/mnt/clipboard (/lindroid/clipboard in the
+container): on focus gain the Android clipboard is written to
+android.txt, on focus loss a changed linux.txt becomes the Android
+primary clip. A container-side agent (plektra-linux on the Unihertz
+Titan 2) creates the directory and mirrors the KDE clipboard (Klipper).
+Nothing happens when the directory does not exist.
+
+sepolicy: system_app may create/read/write files in lindroid_file.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../java/org/lindroid/ui/ClipboardBridge.java | 82 +++++++++++++++++++
+ .../java/org/lindroid/ui/DisplayActivity.java | 11 +++
+ sepolicy/system_app.te                        |  4 +
+ 3 files changed, 97 insertions(+)
+ create mode 100644 app/app/src/main/java/org/lindroid/ui/ClipboardBridge.java
+
+diff --git a/app/app/src/main/java/org/lindroid/ui/ClipboardBridge.java b/app/app/src/main/java/org/lindroid/ui/ClipboardBridge.java
+new file mode 100644
+index 0000000..cd44d9d
+--- /dev/null
++++ b/app/app/src/main/java/org/lindroid/ui/ClipboardBridge.java
+@@ -0,0 +1,82 @@
++package org.lindroid.ui;
++
++import android.content.ClipData;
++import android.content.ClipboardManager;
++import android.content.Context;
++import android.util.Log;
++
++import java.io.File;
++import java.io.FileOutputStream;
++import java.io.IOException;
++import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
++
++/**
++ * Text clipboard sync between Android and the Linux container through the shared Lindroid
++ * directory (/data/lindroid/mnt is /lindroid inside the container). A container-side agent
++ * (e.g. plektra-linux) mirrors the Linux clipboard into clipboard/linux.txt and applies
++ * clipboard/android.txt to it.
++ * Android only lets the focused app read the clipboard, so the exchange happens on focus
++ * changes of DisplayActivity: on focus gain the Android clipboard goes to Linux, on focus
++ * loss the Linux clipboard (if it changed) comes back to Android.
++ */
++final class ClipboardBridge {
++    private static final String TAG = "LindroidClipboard";
++    private static final File DIR = new File("/data/lindroid/mnt/clipboard");
++    private static final File TO_LINUX = new File(DIR, "android.txt");
++    private static final File FROM_LINUX = new File(DIR, "linux.txt");
++
++    private static String sLastSent;        // last text written for Linux
++    private static long sLastApplied;       // mtime of linux.txt already applied
++
++    private ClipboardBridge() {}
++
++    static void onFocusGained(Context ctx) {
++        if (!DIR.isDirectory()) {
++            return;   // nothing in the container takes part
++        }
++        try {
++            ClipboardManager cm = ctx.getSystemService(ClipboardManager.class);
++            ClipData clip = cm != null ? cm.getPrimaryClip() : null;
++            if (clip == null || clip.getItemCount() == 0) {
++                return;
++            }
++            CharSequence t = clip.getItemAt(0).coerceToText(ctx);
++            String text = t != null ? t.toString() : null;
++            if (text == null || text.isEmpty() || text.equals(sLastSent)) {
++                return;
++            }
++            File tmp = new File(DIR, "android.txt.tmp");
++            try (FileOutputStream out = new FileOutputStream(tmp)) {
++                out.write(text.getBytes(StandardCharsets.UTF_8));
++            }
++            tmp.setReadable(true, false);
++            if (tmp.renameTo(TO_LINUX)) {
++                sLastSent = text;
++            }
++        } catch (IOException | RuntimeException e) {
++            Log.w(TAG, "to Linux", e);
++        }
++    }
++
++    static void onFocusLost(Context ctx) {
++        try {
++            long m = FROM_LINUX.lastModified();
++            if (m == 0 || m == sLastApplied) {
++                return;
++            }
++            sLastApplied = m;
++            String text = new String(Files.readAllBytes(FROM_LINUX.toPath()), StandardCharsets.UTF_8);
++            if (text.isEmpty() || text.equals(sLastSent)) {
++                return;
++            }
++            ClipboardManager cm = ctx.getSystemService(ClipboardManager.class);
++            if (cm != null) {
++                cm.setPrimaryClip(ClipData.newPlainText("Linux", text));
++                sLastSent = text;   // do not send it back on the next focus gain
++            }
++        } catch (IOException | RuntimeException e) {
++            Log.w(TAG, "from Linux", e);
++        }
++    }
++}
+diff --git a/app/app/src/main/java/org/lindroid/ui/DisplayActivity.java b/app/app/src/main/java/org/lindroid/ui/DisplayActivity.java
+index 0cf1d4a..54d5f0f 100644
+--- a/app/app/src/main/java/org/lindroid/ui/DisplayActivity.java
++++ b/app/app/src/main/java/org/lindroid/ui/DisplayActivity.java
+@@ -221,6 +221,17 @@ public class DisplayActivity extends AppCompatActivity implements SurfaceHolder.
+         mDpmsHandler.postDelayed(mDpmsOffRunnable, 1000);
+     }
+ 
++    @Override
++    public void onWindowFocusChanged(boolean hasFocus) {
++        super.onWindowFocusChanged(hasFocus);
++        // text clipboard Android <-> Linux (only the focused app may read the clipboard)
++        if (hasFocus) {
++            ClipboardBridge.onFocusGained(this);
++        } else {
++            ClipboardBridge.onFocusLost(this);
++        }
++    }
++
+     @Override
+     protected void onDestroy() {
+         if (teardownExecutor != null) teardownExecutor.shutdownNow();
+diff --git a/sepolicy/system_app.te b/sepolicy/system_app.te
+index 6597428..97be653 100644
+--- a/sepolicy/system_app.te
++++ b/sepolicy/system_app.te
+@@ -1 +1,5 @@
+ allow system_app uhid_device:chr_file rw_file_perms;
++
++# LindroidUI: text clipboard exchange with the container (/data/lindroid/mnt/clipboard)
++allow system_app lindroid_file:dir { search getattr };
++allow system_app lindroid_file:file { create open read write getattr setattr rename unlink };
+-- 
+2.56.0
+

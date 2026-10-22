@@ -1,0 +1,105 @@
+From 5831e1ba2be4ed6403f559780c5a20451913efaa Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 03:01:48 +0300
+Subject: [PATCH] misc: titan2: make MTK mali_kbase r44 work inside PID
+ namespaces
+
+mali_kbase r44 looks the caller's global tgid up in the caller's PID namespace
+(find_get_pid(current->tgid)), so GPU clients in containers fail with -ESRCH.
+A kprobe on find_get_pid() rewrites the caller's own tgid for calls from mali_kbase.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ drivers/misc/Kconfig             |  9 ++++++
+ drivers/misc/Makefile            |  1 +
+ drivers/misc/titan2_mali_pidns.c | 51 ++++++++++++++++++++++++++++++++
+ 3 files changed, 61 insertions(+)
+ create mode 100644 drivers/misc/titan2_mali_pidns.c
+
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index b3f752fac..3c12442cc 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -523,4 +523,13 @@ source "drivers/misc/habanalabs/Kconfig"
+ source "drivers/misc/uacce/Kconfig"
+ source "drivers/misc/pvpanic/Kconfig"
+ source "drivers/misc/mchp_pci1xxxx/Kconfig"
++
++config TITAN2_MALI_PIDNS_FIX
++	bool "Titan 2: let MediaTek mali_kbase r44 create GPU contexts inside PID namespaces"
++	depends on KPROBES && ARM64
++	help
++	  The vendor mali_kbase looks the caller's global tgid up in the caller's PID
++	  namespace, so GPU clients inside containers (Lindroid) fail. A kprobe on
++	  find_get_pid() translates the caller's own tgid for calls from mali_kbase.
++
+ endmenu
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index 72b154bd9..4cd6964ca 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -63,3 +63,4 @@ obj-$(CONFIG_OPEN_DICE)		+= open-dice.o
+ obj-$(CONFIG_GP_PCI1XXXX)	+= mchp_pci1xxxx/
+ obj-$(CONFIG_VCPU_STALL_DETECTOR)	+= vcpu_stall_detector.o
+ obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
++obj-$(CONFIG_TITAN2_MALI_PIDNS_FIX)	+= titan2_mali_pidns.o
+diff --git a/drivers/misc/titan2_mali_pidns.c b/drivers/misc/titan2_mali_pidns.c
+new file mode 100644
+index 000000000..c0cd236fb
+--- /dev/null
++++ b/drivers/misc/titan2_mali_pidns.c
+@@ -0,0 +1,51 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Unihertz Titan 2: MediaTek mali_kbase r44 (vendor_dlkm) creates a GPU context with
++ *     kctx->tgid = current->tgid;  find_get_pid(kctx->tgid);
++ * i.e. it looks the *global* tgid up in the caller's PID namespace. Inside a container
++ * (Lindroid LXC) the lookup fails: "Failed to get pid pointer ... error = -3" and every
++ * EGL client dies. Newer kbase releases use get_task_pid() instead.
++ *
++ * The vendor module can't be rebuilt here, so fix the call from the kernel side: for
++ * find_get_pid() calls made from mali_kbase while the caller is in a non-initial PID
++ * namespace and the argument is the caller's own global tgid, pass the caller's tgid as
++ * seen in its namespace. Only the caller itself is ever resolved, so namespace isolation
++ * is unchanged.
++ */
++#include <linux/kprobes.h>
++#include <linux/module.h>
++#include <linux/pid_namespace.h>
++#include <linux/sched.h>
++#include <linux/string.h>
++
++static int titan2_find_get_pid_pre(struct kprobe *p, struct pt_regs *regs)
++{
++	pid_t nr = (pid_t)regs->regs[0];
++	struct module *mod;
++
++	if (nr != current->tgid || task_active_pid_ns(current) == &init_pid_ns)
++		return 0;
++	/* kprobe handlers run with preemption disabled, as __module_address() needs */
++	mod = __module_address(regs->regs[30]);
++	if (!mod || strncmp(mod->name, "mali_kbase", 10))
++		return 0;
++	regs->regs[0] = task_tgid_vnr(current);
++	return 0;
++}
++
++static struct kprobe titan2_find_get_pid_kp = {
++	.symbol_name = "find_get_pid",
++	.pre_handler = titan2_find_get_pid_pre,
++};
++
++static int __init titan2_mali_pidns_init(void)
++{
++	int ret = register_kprobe(&titan2_find_get_pid_kp);
++
++	if (ret)
++		pr_err("titan2: mali pidns fix: register_kprobe failed: %d\n", ret);
++	else
++		pr_info("titan2: mali pidns fix active\n");
++	return 0;
++}
++late_initcall(titan2_mali_pidns_init);
+-- 
+2.56.0
+

@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Plektra (Titan 2 keyboard)
+Name[ru]=Plektra (клавиатура Titan 2)
+GenericName=Hardware keyboard settings
+GenericName[ru]=Настройки аппаратной клавиатуры
+Comment=Sym pages, Alt layer, Fn/Nav Mode, long press, suggestions, touchpad — like Plektra
+Comment[ru]=Страницы Sym, слой Alt, Fn и режим навигации, долгое нажатие, подсказки, тачпад — как в Plektra
+Exec=plasmawindowed org.plektra.settings
+Icon=input-keyboard
+Categories=Settings;HardwareSettings;Qt;KDE;
+Keywords=keyboard;titan;plektra;sym;alt;touchpad;layout;
+Keywords[ru]=клавиатура;titan;plektra;sym;alt;тачпад;раскладка;
+X-KDE-System-Settings-Parent-Category=keyboard
+X-KDE-Weight=90

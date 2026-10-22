@@ -1,0 +1,173 @@
+From cef95caba1c945ae0529b200185b2ca335f993ac Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 21:11:20 +0300
+Subject: [PATCH] Sandbox: personal data toggles for isolated apps (Titan 2)
+
+Contacts, call log, SMS, calendar, location and photos/files switches
+under the isolated app's options; off (default) hides the data from it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ res/values-ru/strings.xml                     | 15 ++++
+ res/values/strings.xml                        | 15 ++++
+ .../android/axion/sandbox/ui/SandboxApp.kt    | 82 +++++++++++++++++++
+ 3 files changed, 112 insertions(+)
+
+diff --git a/res/values-ru/strings.xml b/res/values-ru/strings.xml
+index 0ba6ebb..867b06c 100644
+--- a/res/values-ru/strings.xml
++++ b/res/values-ru/strings.xml
+@@ -234,4 +234,19 @@
+     <string name="verify_pin_prompt">Введите ваш текущий PIN для изменения настроек</string>
+     <string name="verify_password_prompt">Введите ваш текущий пароль для изменения настроек</string>
+     <string name="verify_pattern_prompt">Нарисуйте графический ключ для изменения настроек</string>
++
++    <!-- Titan 2: personal data of an isolated app -->
++    <string name="scopes_title">Личные данные</string>
++    <string name="scope_contacts">Контакты и аккаунты</string>
++    <string name="scope_contacts_description">Выкл.: приложение получает пустой список контактов</string>
++    <string name="scope_call_log">Журнал звонков</string>
++    <string name="scope_call_log_description">Выкл.: приложение получает пустой журнал</string>
++    <string name="scope_sms">SMS</string>
++    <string name="scope_sms_description">Выкл.: приложение не может читать сообщения</string>
++    <string name="scope_calendar">Календарь</string>
++    <string name="scope_calendar_description">Выкл.: приложение получает пустой календарь</string>
++    <string name="scope_location">Местоположение</string>
++    <string name="scope_location_description">Выкл.: нет местоположения и результатов поиска Wi-Fi и Bluetooth</string>
++    <string name="scope_files">Фото и файлы</string>
++    <string name="scope_files_description">Выкл.: только фото, которые вы выберете сами</string>
+ </resources>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 17244e8..1d05cb3 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -259,4 +259,19 @@
+     <string name="verify_pin_prompt">Enter your current PIN to change security</string>
+     <string name="verify_password_prompt">Enter your current password to change security</string>
+     <string name="verify_pattern_prompt">Draw your current pattern to change security</string>
++
++    <!-- Titan 2: personal data of an isolated app -->
++    <string name="scopes_title">Personal data</string>
++    <string name="scope_contacts">Contacts and accounts</string>
++    <string name="scope_contacts_description">Off: the app gets an empty contact list</string>
++    <string name="scope_call_log">Call log</string>
++    <string name="scope_call_log_description">Off: the app gets an empty call log</string>
++    <string name="scope_sms">SMS</string>
++    <string name="scope_sms_description">Off: the app cannot read messages</string>
++    <string name="scope_calendar">Calendar</string>
++    <string name="scope_calendar_description">Off: the app gets an empty calendar</string>
++    <string name="scope_location">Location</string>
++    <string name="scope_location_description">Off: no location, Wi-Fi or Bluetooth scan results</string>
++    <string name="scope_files">Photos and files</string>
++    <string name="scope_files_description">Off: only photos you pick yourself</string>
+ </resources>
+diff --git a/src/com/android/axion/sandbox/ui/SandboxApp.kt b/src/com/android/axion/sandbox/ui/SandboxApp.kt
+index 8f6b54d..d335d1d 100644
+--- a/src/com/android/axion/sandbox/ui/SandboxApp.kt
++++ b/src/com/android/axion/sandbox/ui/SandboxApp.kt
+@@ -638,6 +638,66 @@ private val SPOOF_ACCESSIBILITY_KEYS = listOf(
+     "accessibility_display_inversion_enabled"
+ )
+ 
++// Titan 2: personal data of an isolated app. Off = the permission stays granted but the
++// system returns empty data / no location (AppOpsService, "titan2_allow_<scope>" keys).
++private val DATA_SCOPES = listOf(
++    SpoofSettingEntry("titan2_allow_contacts",
++            R.string.scope_contacts, R.string.scope_contacts_description),
++    SpoofSettingEntry("titan2_allow_call_log",
++            R.string.scope_call_log, R.string.scope_call_log_description),
++    SpoofSettingEntry("titan2_allow_sms",
++            R.string.scope_sms, R.string.scope_sms_description),
++    SpoofSettingEntry("titan2_allow_calendar",
++            R.string.scope_calendar, R.string.scope_calendar_description),
++    SpoofSettingEntry("titan2_allow_location",
++            R.string.scope_location, R.string.scope_location_description),
++    SpoofSettingEntry("titan2_allow_files",
++            R.string.scope_files, R.string.scope_files_description)
++)
++
++@OptIn(ExperimentalMaterial3ExpressiveApi::class)
++@Composable
++private fun DataScopesDropdown(
++    app: AppInfo,
++    sandboxManager: android.app.AxSandboxManager?
++) {
++    if (sandboxManager == null) return
++
++    val scope = rememberCoroutineScope()
++    val allowed = remember(app.packageName) {
++        mutableStateMapOf<String, Boolean>().apply {
++            DATA_SCOPES.forEach { entry ->
++                put(entry.key, sandboxManager.isSpoofSettingEnabled(app.packageName, entry.key))
++            }
++        }
++    }
++
++    PreferenceGroup(
++        title = stringResource(R.string.scopes_title),
++        collapsible = true,
++        initiallyExpanded = false,
++    ) {
++        DATA_SCOPES.forEach { entry ->
++            item {
++                val isAllowed = allowed[entry.key] ?: false
++                SwitchPreference(
++                    title = stringResource(entry.titleRes),
++                    summary = stringResource(entry.descriptionRes),
++                    checked = isAllowed,
++                    onCheckedChange = {
++                        val newValue = !isAllowed
++                        allowed[entry.key] = newValue
++                        scope.launch(Dispatchers.IO) {
++                            sandboxManager.setSpoofSettingEnabled(
++                                    app.packageName, entry.key, newValue)
++                        }
++                    },
++                )
++            }
++        }
++    }
++}
++
+ @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+ @Composable
+ private fun SpoofSettingsDropdown(
+@@ -830,6 +890,17 @@ fun AppDetailScreen(
+                 )
+             }
+ 
++            item {
++                val context = LocalContext.current
++                val sandboxManager = remember {
++                    context.getSystemService(android.app.AxSandboxManager::class.java)
++                }
++                DataScopesDropdown(
++                    app = app,
++                    sandboxManager = sandboxManager
++                )
++            }
++
+             item { Spacer(modifier = Modifier.height(24.dp)) }
+         }
+     }
+@@ -1535,6 +1606,17 @@ private fun AppQuickActionsSheet(
+                     sandboxManager = sandboxManager
+                 )
+             }
++
++            item {
++                val context = LocalContext.current
++                val sandboxManager = remember {
++                    context.getSystemService(android.app.AxSandboxManager::class.java)
++                }
++                DataScopesDropdown(
++                    app = app,
++                    sandboxManager = sandboxManager
++                )
++            }
+         }
+ }
+ 
+-- 
+2.56.0
+

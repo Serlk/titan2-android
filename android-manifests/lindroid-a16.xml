@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lindroid for crDroid 16 (A16 QPR2): YAAP "sixteen" branches (graphics.common-V7, as in the platform).
+     vendor_extra from Linux-on-droid is not needed: lindroid.mk is included from vendor/titan2/titan2.mk,
+     and the Android.mk allowlist comes from vendor-extra/ in our repository (mounted as vendor/extra). -->
+<manifest>
+  <remote name="yaap" fetch="https://github.com/yaap/" />
+  <project name="vendor_lindroid" path="vendor/lindroid" remote="yaap" revision="sixteen" clone-depth="1" />
+  <project name="external_lxc" path="external/lxc" remote="yaap" revision="sixteen" clone-depth="1" />
+  <project name="libhybris" path="external/libhybris" remote="yaap" revision="sixteen" clone-depth="1" />
+</manifest>

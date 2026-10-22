@@ -1,0 +1,17 @@
+{
+  "schema": 2,
+  "name": "Graphite analog",
+  "author": "Titan 2",
+  "description": "Graphite grey, analog clock with an orange second hand",
+  "colors": {
+    "background": "#121212",
+    "onSurface": "#E0E0E0",
+    "onSurfaceVariant": "#616161",
+    "primary": "#FF7043",
+    "onPrimary": "#121212"
+  },
+  "typography": { "font": "sans-serif" },
+  "clock": { "face": "analog", "seconds": true,
+             "faces": { "analog": { "ticks": "all", "numbers": false, "handWidth": 1.0 } } },
+  "layout": { "iconShape": "circle", "iconStyle": "color", "labels": false }
+}

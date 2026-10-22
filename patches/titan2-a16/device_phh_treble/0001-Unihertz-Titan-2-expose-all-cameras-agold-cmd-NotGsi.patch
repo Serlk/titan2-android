@@ -1,0 +1,88 @@
+From f1eaf5614dd3938e833b02e25b9a99af4870c6f6 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Sun, 18 Oct 2026 13:43:45 +0300
+Subject: [PATCH] Unihertz Titan 2: expose all cameras (agold-cmd NotGsi + HAL
+ restart), switch off rear display
+
+Ported to android-16.0: base.mk additions appended as a separate block.
+Also inherit vendor/titan2/titan2.mk if present (Plektra etc.).
+---
+ base.mk                |  8 ++++++++
+ phh-on-boot.sh         |  4 ++++
+ sepolicy/file_contexts |  1 +
+ titan2-on-boot.sh      | 23 +++++++++++++++++++++++
+ 4 files changed, 36 insertions(+)
+ create mode 100755 titan2-on-boot.sh
+
+diff --git a/base.mk b/base.mk
+index 31be9b9..a23a98d 100644
+--- a/base.mk
++++ b/base.mk
+@@ -258,3 +258,11 @@ PRODUCT_PRODUCT_PROPERTIES += \
+     persist.settings.large_screen_opt.enabled=true
+ 
+ PRODUCT_EXTRA_VNDK_VERSIONS += 30
++
++# Unihertz Titan 2: cameras (agold-cmd NotGsi + HAL restart), touchpad node, charge limit node.
++# titan2-on-boot.sh is started from phh-on-boot.sh only on the Unihertz/Titan_2 vendor.
++PRODUCT_COPY_FILES += \
++    device/phh/treble/titan2-on-boot.sh:system/bin/titan2-on-boot.sh
++PRODUCT_PACKAGES += agold-cmd
++# Our layer (Plektra etc.): vendor/titan2 is mounted at build time; without it the GSI builds as usual
++$(call inherit-product-if-exists, vendor/titan2/titan2.mk)
+diff --git a/phh-on-boot.sh b/phh-on-boot.sh
+index 1c7084c..1b170f6 100644
+--- a/phh-on-boot.sh
++++ b/phh-on-boot.sh
+@@ -81,6 +81,10 @@ fi
+ 
+ setprop ctl.start media.swcodec
+ 
++if getprop ro.vendor.build.fingerprint | grep -q -e Unihertz/Titan_2/;then
++    /system/bin/titan2-on-boot.sh &
++fi
++
+ for i in wpa p2p;do
+ 	if [ ! -f /data/misc/wifi/${i}_supplicant.conf ];then
+ 		cp /vendor/etc/wifi/wpa_supplicant.conf /data/misc/wifi/${i}_supplicant.conf
+diff --git a/sepolicy/file_contexts b/sepolicy/file_contexts
+index bd5b48d..c07d8f5 100644
+--- a/sepolicy/file_contexts
++++ b/sepolicy/file_contexts
+@@ -20,3 +20,4 @@
+ 
+ /dev/smcinvoke u:object_r:smcinvoke_device:s0
+ /system/bin/hw/android\.hardware\.bluetooth\.audio-service-system u:object_r:hal_audio_sysbta_exec:s0
++/system/bin/titan2-on-boot.sh u:object_r:phhsu_exec:s0
+diff --git a/titan2-on-boot.sh b/titan2-on-boot.sh
+new file mode 100755
+index 0000000..8ad62bd
+--- /dev/null
++++ b/titan2-on-boot.sh
+@@ -0,0 +1,23 @@
++#!/system/bin/sh
++# Unihertz Titan 2 (MT6878, Agold): started from phh-on-boot.sh after sys.boot_completed.
++
++# Charge limit (Titan2Parts, uid system): the MTK "do not charge" node, root:root 0644 by default.
++chown system:system /proc/mtk_battery_cmd/current_cmd
++
++# Cameras: the Agold HAL hides the tele (id 2) and logical (id 3) cameras until told "not GSI", and
++# builds the camera list when it starts. Say "not GSI" (agold-cmd also makes the stock camera app
++# com.mediatek.camera a HAL client), then restart the HAL and cameraserver: 2 -> 4 cameras.
++agold-cmd NotGsi
++setprop ctl.restart camerahalserver
++sleep 8
++setprop ctl.restart cameraserver
++
++# Rear screen (410x502, DSI-2): not needed. On stock the Agui framework drove its backlight; on the GSI it
++# stayed on even with the screen off. Turn the backlight off, switch the display off, block touch.
++bl=/sys/class/leds/lcd-backlight1/brightness
++echo 0 > $bl; chown root:root $bl; chmod 0444 $bl
++id=$(dumpsys display | sed -n 's/.*displayId \([0-9]*\),.* real 410 x 502.*/\1/p' | head -1)
++[ -n "$id" ] && cmd display disable-display "$id"
++for d in /sys/class/input/input*; do
++    [ "$(cat $d/name)" = sub_touch ] && echo 1 > $d/inhibited
++done
+-- 
+2.56.0
+

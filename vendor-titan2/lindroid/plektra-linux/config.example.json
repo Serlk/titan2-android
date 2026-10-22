@@ -1,0 +1,101 @@
+{
+  "_comment": "Copy to /etc/plektra-linux/config.json and keep only what you change; then: systemctl restart plektra-linux. Keys starting with _ are ignored.",
+  "long_press_ms": 300,
+  "double_tap_ms": 500,
+  "long_press_mode": "alt",
+  "_long_press_mode": "alt: a long press gives the Alt character; shift: an uppercase letter; off: disabled",
+  "sym_pages": [
+    "device",
+    "emoji",
+    "symbols"
+  ],
+  "_sym_pages": "order of the SYM pages; any subset of device/emoji/symbols",
+  "sym_auto_close": true,
+  "alt_binding": "device",
+  "_alt_binding": "which table Alt uses: device (Titan), emoji, symbols",
+  "nav_mode": true,
+  "nav_mode_ctrl_hold": false,
+  "clear_alt_on_space": true,
+  "alt_latch_stays_on_space": false,
+  "ctrl_space_layout_switch": true,
+  "double_space_period": true,
+  "autocap_after_period": true,
+  "shift_tap_latches": false,
+  "alt_tap_latches": false,
+  "ctrl_tap_latches": false,
+  "back_key": "KEY_ESC",
+  "_back_key": "KEY_ESC or KEY_BACK (XF86Back: \"Back\" in a browser/Dolphin)",
+  "recents_key": [
+    "KEY_LEFTMETA",
+    "KEY_W"
+  ],
+  "side_key_1": "KEY_PROG1",
+  "side_key_2": "KEY_PROG2",
+  "layout_switch_keys": [
+    "KEY_LEFTMETA",
+    "KEY_LEFTALT",
+    "KEY_K"
+  ],
+  "ui": "plasma",
+  "osd_oneshot": false,
+  "fn_tap": "auto",
+  "_fn_tap": "auto: in a field the Plektra Ctrl layout, outside a field a real Ctrl; map; ctrl",
+  "sym_tap": null,
+  "alt_space": null,
+  "keys": {},
+  "long_space_ms": 500,
+  "macros": {
+    "SYM+D": {
+      "text": "{date:%d.%m.%Y}"
+    },
+    "FN+SYM+T": {
+      "run": "konsole"
+    }
+  },
+  "_macros": "Sym+letter / Fn+Sym+letter: text ({date} {time} {datetime}), keys [...], run \"command\"",
+  "touchpad": {
+    "enabled": true,
+    "mode": "scroll",
+    "reverse": false,
+    "scroll_speed": 1.0,
+    "mouse_speed": 1.0
+  },
+  "_touchpad": "mode: scroll | mouse_left | mouse_right",
+  "clipboard_sync": true,
+  "kbd_light_prop": "sys.titan2.lindroid.kbd",
+  "_profiles": "profiles replaces the built-in list entirely; the built-in terminal is an example",
+  "profiles": [
+    {
+      "name": "terminal",
+      "apps": [
+        "org.kde.konsole",
+        "foot",
+        "kitty",
+        "Alacritty"
+      ],
+      "overrides": {
+        "fn_tap": "ctrl",
+        "sym_tap": "KEY_ESC",
+        "alt_space": "KEY_TAB",
+        "sym_pages": [
+          "symbols",
+          "device",
+          "emoji"
+        ],
+        "double_space_period": false,
+        "autocap_after_period": false
+      }
+    },
+    {
+      "name": "game",
+      "apps": [
+        "supertuxkart"
+      ],
+      "overrides": {
+        "keys": {
+          "FN": "KEY_TAB"
+        }
+      }
+    }
+  ]
+}

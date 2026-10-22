@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# plektra-linux: the Titan 2 keyboard "like in Plektra" in the Lindroid container.
+[Unit]
+Description=Plektra-like Titan 2 hardware keyboard (Sym/Alt/Fn layers) for Lindroid
+After=systemd-udevd.service
+Before=display-manager.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -I -B /usr/local/lib/plektra-linux/plektra-linux.py
+Restart=always
+RestartSec=1
+Nice=-5
+
+[Install]
+WantedBy=multi-user.target

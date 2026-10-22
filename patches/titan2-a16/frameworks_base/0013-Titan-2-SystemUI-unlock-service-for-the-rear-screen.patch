@@ -1,0 +1,482 @@
+From 04bcd9723efc2438c325a757a2ca6970b382251f Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 01:16:33 +0300
+Subject: [PATCH 13/14] Titan 2: SystemUI unlock service for the rear screen
+
+Titan2RearUnlockService lets RearShell (CONTROL_KEYGUARD) query the lock, dismiss it when no
+input is needed and unlock with the PIN/pattern, checked like the bouncer does (LockSettings,
+failed attempts, lockout). A SIM PIN/PUK, secure lock device or a device admin secondary lock
+screen leave both paths unavailable, as the bouncer would still ask for them. The keyguard
+presentation is not shown on the rear display: the shell draws its own lock screen there.
+---
+ packages/SystemUI/AndroidManifest.xml         |   6 +
+ .../keyguard/KeyguardDisplayManager.java      |  10 +
+ .../systemui/dagger/DefaultServiceBinder.java |   7 +
+ .../keyguard/Titan2RearUnlockService.java     | 381 ++++++++++++++++++
+ 4 files changed, 404 insertions(+)
+ create mode 100644 packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java
+
+diff --git a/packages/SystemUI/AndroidManifest.xml b/packages/SystemUI/AndroidManifest.xml
+index 65bdcad4f..d04606bfb 100644
+--- a/packages/SystemUI/AndroidManifest.xml
++++ b/packages/SystemUI/AndroidManifest.xml
+@@ -910,6 +910,12 @@
+             android:name=".keyguard.KeyguardService"
+             android:exported="true" />
+ 
++        <!-- Titan 2: unlock from the rear screen (RearShell) -->
++        <service
++            android:name=".keyguard.Titan2RearUnlockService"
++            android:permission="android.permission.CONTROL_KEYGUARD"
++            android:exported="true" />
++
+         <service
+             android:name=".dreams.DreamOverlayService"
+             android:enabled="false"
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardDisplayManager.java b/packages/SystemUI/src/com/android/keyguard/KeyguardDisplayManager.java
+index 5d01dddcc..3a34cf884 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardDisplayManager.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardDisplayManager.java
+@@ -25,10 +25,12 @@ import android.hardware.devicestate.DeviceStateManager;
+ import android.hardware.display.DisplayManager;
+ import android.media.MediaRouter;
+ import android.media.MediaRouter.RouteInfo;
++import android.os.SystemProperties;
+ import android.os.Trace;
+ import android.util.Log;
+ import android.util.SparseArray;
+ import android.view.Display;
++import android.view.DisplayAddress;
+ import android.view.DisplayInfo;
+ import android.view.View;
+ import android.view.WindowManager;
+@@ -178,6 +180,14 @@ public class KeyguardDisplayManager {
+             Log.i(TAG, "Do not show KeyguardPresentation on an unlocked display");
+             return false;
+         }
++        // Titan 2: on the rear screen the lock is shown by its shell (RearShell, a
++        // showWhenLocked window); the SystemUI presentation would cover it
++        final int rearPort = SystemProperties.getInt("ro.titan2.rear_display_port", -1);
++        if (rearPort >= 0 && mTmpDisplayInfo.address instanceof DisplayAddress.Physical
++                && ((DisplayAddress.Physical) mTmpDisplayInfo.address).getPort() == rearPort) {
++            Log.i(TAG, "Do not show KeyguardPresentation on the Titan 2 rear display");
++            return false;
++        }
+ 
+         final boolean deviceStateOccludesKeyguard =
+                 mDeviceStateHelper.isConcurrentDisplayActive(display)
+diff --git a/packages/SystemUI/src/com/android/systemui/dagger/DefaultServiceBinder.java b/packages/SystemUI/src/com/android/systemui/dagger/DefaultServiceBinder.java
+index 807ec4a00..81175cea9 100644
+--- a/packages/SystemUI/src/com/android/systemui/dagger/DefaultServiceBinder.java
++++ b/packages/SystemUI/src/com/android/systemui/dagger/DefaultServiceBinder.java
+@@ -26,6 +26,7 @@ import com.android.systemui.doze.DozeService;
+ import com.android.systemui.dreams.DreamOverlayService;
+ import com.android.systemui.dump.SystemUIAuxiliaryDumpService;
+ import com.android.systemui.keyguard.KeyguardService;
++import com.android.systemui.keyguard.Titan2RearUnlockService;
+ import com.android.systemui.recordissue.IssueRecordingService;
+ import com.android.systemui.screenrecord.RecordingService;
+ import com.android.systemui.statusbar.phone.NotificationListenerWithPlugins;
+@@ -59,6 +60,12 @@ public abstract class DefaultServiceBinder {
+     @ClassKey(KeyguardService.class)
+     public abstract Service bindKeyguardService(KeyguardService service);
+ 
++    /** Titan 2: unlock from the rear screen */
++    @Binds
++    @IntoMap
++    @ClassKey(Titan2RearUnlockService.class)
++    public abstract Service bindTitan2RearUnlockService(Titan2RearUnlockService service);
++
+     /** */
+     @Binds
+     @IntoMap
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java b/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java
+new file mode 100644
+index 000000000..9dba03f24
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java
+@@ -0,0 +1,381 @@
++/*
++ * Copyright (C) 2026 The Titan 2 Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.keyguard;
++
++import static android.security.Flags.secureLockDevice;
++
++import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.STRONG_BIOMETRIC_AUTH_REQUIRED_FOR_SECURE_LOCK_DEVICE;
++
++import android.Manifest;
++import android.app.Service;
++import android.content.Intent;
++import android.content.pm.PackageManager;
++import android.hardware.display.DisplayManager;
++import android.os.Bundle;
++import android.os.Handler;
++import android.os.HandlerThread;
++import android.os.IBinder;
++import android.os.Looper;
++import android.os.Message;
++import android.os.Messenger;
++import android.os.RemoteException;
++import android.os.SystemClock;
++import android.os.SystemProperties;
++import android.util.Log;
++import android.view.Display;
++import android.view.DisplayAddress;
++import android.view.DisplayInfo;
++
++import com.android.internal.widget.LockPatternUtils;
++import com.android.internal.widget.LockscreenCredential;
++import com.android.keyguard.KeyguardSecurityModel;
++import com.android.keyguard.KeyguardSecurityModel.SecurityMode;
++import com.android.keyguard.KeyguardUpdateMonitor;
++import com.android.systemui.dagger.qualifiers.Main;
++import com.android.systemui.keyguard.domain.interactor.KeyguardDismissTransitionInteractor;
++import com.android.systemui.user.domain.interactor.SelectedUserInteractor;
++
++import java.util.Arrays;
++
++import javax.inject.Inject;
++
++/**
++ * Titan 2: unlock from the rear screen (RearShell). SystemUI checks the credential the same way
++ * as the regular PIN/pattern entry: LockSettings (gatekeeper and its throttling), the failed
++ * attempt counter (DPM policies, including wipe), the lockout deadline. Only after a match is the
++ * keyguard dismissed, through the same path as from the bouncer.
++ * Binding requires CONTROL_KEYGUARD (signature, AndroidManifest); every message is checked
++ * against its sending uid as well, since the Messenger binder can be handed on.
++ * The bouncer's gates apply to both paths: SIM PIN/PUK, secure lock device and a device admin
++ * secondary lock screen make the main screen's bouncer the only way in.
++ *
++ * While the shell is bound, the phone locks again when the rear screen goes off with the main
++ * one off (otherwise a rear unlock would last until the main screen next sleeps).
++ *
++ * Protocol (Messenger, reply to msg.replyTo):
++ * MSG_QUERY -> arg1 = credential type (LockPatternUtils.CREDENTIAL_TYPE_*), arg2 = pattern grid
++ *   size; data: "available" (can be unlocked from here), "lockout_ms", "pin_length" (-1 if
++ *   unknown).
++ * MSG_DISMISS -> dismiss without input when none is needed (no PIN, trusted device, fingerprint
++ *   already matched) - swipe up on the rear screen; arg1 = RESULT_OK or RESULT_UNAVAILABLE
++ *   (input needed).
++ * MSG_UNLOCK, data "credential" (byte[]: PIN as ASCII digits, pattern as point numbers '1'...) ->
++ *   arg1 = RESULT_*, arg2 = delay in ms (RESULT_LOCKOUT) or the number of failed attempts.
++ */
++public class Titan2RearUnlockService extends Service {
++    private static final String TAG = "Titan2RearUnlock";
++
++    public static final int MSG_QUERY = 1;
++    public static final int MSG_UNLOCK = 2;
++    public static final int MSG_DISMISS = 3;
++
++    public static final int RESULT_OK = 0;
++    public static final int RESULT_WRONG = 1;
++    public static final int RESULT_LOCKOUT = 2;
++    public static final int RESULT_UNAVAILABLE = 3;
++
++    private final LockPatternUtils mLockPatternUtils;
++    private final KeyguardViewMediator mKeyguardViewMediator;
++    private final KeyguardUpdateMonitor mUpdateMonitor;
++    private final KeyguardSecurityModel mSecurityModel;
++    private final SelectedUserInteractor mSelectedUserInteractor;
++    private final KeyguardDismissTransitionInteractor mDismissTransitionInteractor;
++    private final Handler mMainHandler;
++
++    private HandlerThread mThread;
++    private Messenger mMessenger;
++    private DisplayManager mDisplayManager;
++    private final DisplayInfo mTmpInfo = new DisplayInfo();
++
++    private final DisplayManager.DisplayListener mDisplayListener =
++            new DisplayManager.DisplayListener() {
++                @Override
++                public void onDisplayAdded(int displayId) {}
++
++                @Override
++                public void onDisplayRemoved(int displayId) {}
++
++                @Override
++                public void onDisplayChanged(int displayId) {
++                    if (isRearDisplay(displayId)) {
++                        relockIfAllOff();
++                    }
++                }
++            };
++
++    @Inject
++    public Titan2RearUnlockService(LockPatternUtils lockPatternUtils,
++            KeyguardViewMediator keyguardViewMediator,
++            KeyguardUpdateMonitor updateMonitor,
++            KeyguardSecurityModel securityModel,
++            SelectedUserInteractor selectedUserInteractor,
++            KeyguardDismissTransitionInteractor dismissTransitionInteractor,
++            @Main Handler mainHandler) {
++        mLockPatternUtils = lockPatternUtils;
++        mKeyguardViewMediator = keyguardViewMediator;
++        mUpdateMonitor = updateMonitor;
++        mSecurityModel = securityModel;
++        mSelectedUserInteractor = selectedUserInteractor;
++        mDismissTransitionInteractor = dismissTransitionInteractor;
++        mMainHandler = mainHandler;
++    }
++
++    @Override
++    public void onCreate() {
++        super.onCreate();
++        // credential checks are slow and not allowed on the main thread
++        mThread = new HandlerThread(TAG);
++        mThread.start();
++        mMessenger = new Messenger(new Handler(mThread.getLooper(), this::handleMessage));
++        mDisplayManager = getSystemService(DisplayManager.class);
++        mDisplayManager.registerDisplayListener(mDisplayListener, mMainHandler);
++    }
++
++    @Override
++    public void onDestroy() {
++        mDisplayManager.unregisterDisplayListener(mDisplayListener);
++        mThread.quitSafely();
++        super.onDestroy();
++    }
++
++    @Override
++    public IBinder onBind(Intent intent) {
++        return mMessenger.getBinder();
++    }
++
++    @Override
++    public boolean onUnbind(Intent intent) {
++        mMainHandler.post(this::relockIfAllOff);
++        return false;
++    }
++
++    private boolean handleMessage(Message msg) {
++        final Messenger reply = msg.replyTo;
++        if (reply == null) {
++            return true;
++        }
++        if (msg.sendingUid < 0 || checkPermission(Manifest.permission.CONTROL_KEYGUARD, -1,
++                msg.sendingUid) != PackageManager.PERMISSION_GRANTED) {
++            Log.w(TAG, "message from uid " + msg.sendingUid + " without CONTROL_KEYGUARD");
++            return true;
++        }
++        final Message out = Message.obtain(null, msg.what);
++        switch (msg.what) {
++            case MSG_QUERY:
++                query(out);
++                break;
++            case MSG_DISMISS: {
++                final int userId = mSelectedUserInteractor.getSelectedUserId();
++                if (canSkipInput(userId)) {
++                    mMainHandler.post(() -> dismissKeyguard(userId));
++                    out.arg1 = RESULT_OK;
++                } else {
++                    out.arg1 = RESULT_UNAVAILABLE;
++                }
++                break;
++            }
++            case MSG_UNLOCK: {
++                final Bundle data = msg.peekData();
++                final byte[] cred = data == null ? null : data.getByteArray("credential");
++                unlock(cred, out);
++                if (cred != null) {
++                    Arrays.fill(cred, (byte) 0);
++                }
++                break;
++            }
++            default:
++                return false;
++        }
++        try {
++            reply.send(out);
++        } catch (RemoteException e) {
++            Log.w(TAG, "reply", e);
++        }
++        return true;
++    }
++
++    private void query(Message out) {
++        final int userId = mSelectedUserInteractor.getSelectedUserId();
++        out.arg1 = mLockPatternUtils.getCredentialTypeForUser(userId);
++        out.arg2 = mLockPatternUtils.getLockPatternSize(userId);
++        final Bundle b = new Bundle();
++        b.putBoolean("available", isAvailable(userId));
++        b.putBoolean("can_skip", canSkipInput(userId));
++        b.putLong("lockout_ms", lockoutRemaining(userId));
++        b.putInt("pin_length", mLockPatternUtils.getPinLength(userId));
++        out.setData(b);
++    }
++
++    /** The keyguard can be dismissed without input (as KeyguardSecurityContainerController). */
++    private boolean canSkipInput(int userId) {
++        if (!mKeyguardViewMediator.isShowing() || isBlockedByBouncerGate(userId)) {
++            return false;
++        }
++        return !mLockPatternUtils.isSecure(userId)
++                || mUpdateMonitor.getUserCanSkipBouncer(userId);
++    }
++
++    /**
++     * What the bouncer would still ask for after the primary credential or trust (as
++     * KeyguardSecurityContainerController.showNextSecurityScreenOrFinish): a SIM PIN/PUK, the
++     * secure lock device biometric step, a device admin secondary lock screen. None of them can
++     * be satisfied from the rear screen.
++     */
++    private boolean isBlockedByBouncerGate(int userId) {
++        final SecurityMode mode = mSecurityModel.getSecurityMode(userId);
++        if (mode == SecurityMode.SimPin || mode == SecurityMode.SimPuk
++                || mode == SecurityMode.SecureLockDeviceBiometricAuth
++                || mode == SecurityMode.Invalid) {
++            return true;
++        }
++        if (mUpdateMonitor.getSecondaryLockscreenRequirement(userId) != null) {
++            return true;
++        }
++        return secureLockDevice() && (mLockPatternUtils.getStrongAuthForUser(userId)
++                & STRONG_BIOMETRIC_AUTH_REQUIRED_FOR_SECURE_LOCK_DEVICE) != 0;
++    }
++
++    /** Only the primary PIN/pattern without extra admin screens can be unlocked from here. */
++    private boolean isAvailable(int userId) {
++        if (!mKeyguardViewMediator.isShowing() || !mLockPatternUtils.isSecure(userId)) {
++            return false;
++        }
++        final int type = mLockPatternUtils.getCredentialTypeForUser(userId);
++        if (type != LockPatternUtils.CREDENTIAL_TYPE_PIN
++                && type != LockPatternUtils.CREDENTIAL_TYPE_PATTERN) {
++            return false;
++        }
++        return !isBlockedByBouncerGate(userId);
++    }
++
++    private long lockoutRemaining(int userId) {
++        final long deadline = mLockPatternUtils.getLockoutAttemptDeadline(userId);
++        return Math.max(0, deadline - SystemClock.elapsedRealtime());
++    }
++
++    private void unlock(byte[] cred, Message out) {
++        final int userId = mSelectedUserInteractor.getSelectedUserId();
++        if (cred == null || !isAvailable(userId)) {
++            out.arg1 = RESULT_UNAVAILABLE;
++            return;
++        }
++        final long lockout = lockoutRemaining(userId);
++        if (lockout > 0) {
++            out.arg1 = RESULT_LOCKOUT;
++            out.arg2 = (int) lockout;
++            return;
++        }
++        final int type = mLockPatternUtils.getCredentialTypeForUser(userId);
++        final LockscreenCredential credential;
++        final boolean valid;
++        if (type == LockPatternUtils.CREDENTIAL_TYPE_PIN) {
++            final String pin = new String(cred, java.nio.charset.StandardCharsets.US_ASCII);
++            if (!pin.matches("[0-9]+")) {
++                out.arg1 = RESULT_WRONG;
++                return;
++            }
++            credential = LockscreenCredential.createPin(pin);
++            valid = cred.length >= LockPatternUtils.MIN_LOCK_PASSWORD_SIZE;
++        } else {
++            final byte size = mLockPatternUtils.getLockPatternSize(userId);
++            for (byte b : cred) {
++                if (b < '1' || b >= '1' + size * size) {
++                    out.arg1 = RESULT_WRONG;
++                    return;
++                }
++            }
++            credential = LockscreenCredential.createPattern(
++                    LockPatternUtils.byteArrayToPattern(cred, size), size);
++            valid = cred.length >= LockPatternUtils.MIN_LOCK_PATTERN_SIZE;
++        }
++        // a too short input does not count as an attempt, as in the bouncer
++        if (!valid) {
++            credential.zeroize();
++            out.arg1 = RESULT_WRONG;
++            out.arg2 = mLockPatternUtils.getCurrentFailedPasswordAttempts(userId);
++            return;
++        }
++        boolean matched;
++        int timeoutMs = 0;
++        try {
++            matched = mLockPatternUtils.checkCredential(credential, userId, null);
++        } catch (LockPatternUtils.RequestThrottledException e) {
++            matched = false;
++            timeoutMs = e.getTimeoutMs();
++        } finally {
++            credential.zeroize();
++        }
++        if (matched) {
++            Log.i(TAG, "unlocked from the rear display, user " + userId);
++            mLockPatternUtils.reportSuccessfulPasswordAttempt(userId);
++            mMainHandler.post(() -> dismissKeyguard(userId));
++            out.arg1 = RESULT_OK;
++            return;
++        }
++        // as KeyguardSecurityContainerController.reportFailedUnlockAttempt
++        mLockPatternUtils.reportFailedPasswordAttempt(userId);
++        if (timeoutMs > 0) {
++            mLockPatternUtils.reportPasswordLockout(timeoutMs, userId);
++            mLockPatternUtils.setLockoutAttemptDeadline(userId, timeoutMs);
++            out.arg1 = RESULT_LOCKOUT;
++            out.arg2 = timeoutMs;
++        } else {
++            out.arg1 = RESULT_WRONG;
++            out.arg2 = mLockPatternUtils.getCurrentFailedPasswordAttempts(userId);
++        }
++    }
++
++    /** As KeyguardSecurityContainerController: SecurityCallback.finish after the bouncer. */
++    private void dismissKeyguard(int userId) {
++        if (userId != mSelectedUserInteractor.getSelectedUserId()) {
++            return;
++        }
++        mKeyguardViewMediator.getViewMediatorCallback().keyguardDone(userId);
++        if (KeyguardWmStateRefactor.isEnabled()) {
++            mDismissTransitionInteractor.startDismissKeyguardTransition(
++                    "Titan2RearUnlockService");
++        }
++    }
++
++    /** The rear screen went off, the main one is off too and the phone is unlocked: lock it. */
++    private void relockIfAllOff() {
++        if (mKeyguardViewMediator.isShowing()) {
++            return;
++        }
++        final Display main = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
++        if (main == null || main.getState() == Display.STATE_ON) {
++            return;
++        }
++        for (Display d : mDisplayManager.getDisplays()) {
++            if (isRearDisplay(d.getDisplayId()) && d.getState() == Display.STATE_ON) {
++                return;
++            }
++        }
++        Log.i(TAG, "rear display off with the main one off: lock");
++        mKeyguardViewMediator.doKeyguardTimeout(null);
++    }
++
++    private boolean isRearDisplay(int displayId) {
++        final int port = SystemProperties.getInt("ro.titan2.rear_display_port", -1);
++        final Display d = mDisplayManager.getDisplay(displayId);
++        if (port < 0 || d == null || !d.getDisplayInfo(mTmpInfo)) {
++            return false;
++        }
++        return mTmpInfo.address instanceof DisplayAddress.Physical
++                && ((DisplayAddress.Physical) mTmpInfo.address).getPort() == port;
++    }
++}
+-- 
+2.56.0
+

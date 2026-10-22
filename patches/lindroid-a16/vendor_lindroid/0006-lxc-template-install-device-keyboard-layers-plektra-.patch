@@ -1,0 +1,50 @@
+From 68ff08ccf23bb07c147a1c653ef1941d8d40182d Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 13:21:50 +0300
+Subject: [PATCH] lxc template: install device keyboard layers (plektra-linux),
+ pass /dev/uinput
+
+The Lindroid keyboard reaches the container as raw Android scancodes
+(Lindroid-Keyboard-N); keys such as Sym (253) and Fn (251) of the Unihertz
+Titan 2 are beyond the xkb keycode range and dead in Linux. A device can
+ship a remapper (plektra-linux: the Plektra IME behaviour - Sym pages,
+Alt layer, Fn as Ctrl with nav mode - as a python3 service that grabs
+Lindroid-Keyboard-N and re-emits through uinput, plus /etc/xkb symbols and
+rules for symbols outside the layout) under /system_ext/usr/share/*/
+plektra-linux with an install.sh: prepare_rootfs_gsi() runs it into the new
+rootfs. Bind /dev/uinput into the container for it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lxc/template.sh | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/lxc/template.sh b/lxc/template.sh
+index cf17179..38142c5 100755
+--- a/lxc/template.sh
++++ b/lxc/template.sh
+@@ -349,6 +349,12 @@ RULE
+   cat > "$r/etc/udev/rules.d/99-lindroid-android-input.rules" <<'RULE'
+ SUBSYSTEM=="input", KERNEL=="event*|mouse*|mice|js*", GROUP="android_input", MODE="0660"
+ RULE
++  # Device keyboard layers (e.g. plektra-linux on Unihertz Titan 2: Sym pages, Alt layer, Fn as
++  # Ctrl/nav mode), shipped by the device with its own installer: python3 service that grabs
++  # Lindroid-Keyboard-N and re-emits through uinput, plus an xkb symbols/rules pair in /etc/xkb.
++  for d in /system_ext/usr/share/*/plektra-linux; do
++    [ -f "$d/install.sh" ] && sh "$d/install.sh" "$d" "$r" && break
++  done
+ }
+ 
+ unpack_rootfs() {
+@@ -467,6 +473,8 @@ lxc.mount.entry = /dev/vndbinder dev/vndbinder none bind,optional,rw,create=file
+ lxc.mount.entry = /dev/pmsg0 dev/pmsg0 none bind,optional,rw,create=file
+ lxc.mount.entry = /dev/ashmem dev/ashmem none bind,optional,rw,create=file
+ lxc.mount.entry = /dev/input dev/input none rbind,optional,rw,create=dir
++# uinput for keyboard remappers inside the container (they re-emit the Lindroid keyboard)
++lxc.mount.entry = /dev/uinput dev/uinput none bind,optional,rw,create=file
+ # USB devices; nodes appear inside this dir, so hotplugged devices are visible too
+ lxc.mount.entry = /dev/bus/usb dev/bus/usb none rbind,optional,rw,create=dir
+ lxc.mount.entry = selinuxfs sys/fs/selinux selinuxfs optional 0 0
+-- 
+2.56.0
+

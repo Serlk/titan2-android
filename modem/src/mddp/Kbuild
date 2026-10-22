@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0
+MTK := $(DEVICE_MODULES_PATH)/drivers/misc/mediatek
+
+ccflags-y += -I$(MTK)/include/mt-plat -I$(src)/include
+
+obj-m += mddp.o
+mddp-y := ctrl/mddp_if.o \
+	ctrl/mddp_sm.o \
+	ctrl/mddpwh_sm.o \
+	ctrl/mddp_dev.o \
+	ctrl/mddp_ipc.o \
+	filter/mddp_filter.o \
+	filter/mddp_f_dev.o \
+	usage/mddp_usage.o

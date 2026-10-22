@@ -1,0 +1,52 @@
+From db5978f72d77974822463ce14e30f46cf6035d09 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 22:32:22 +0300
+Subject: [PATCH] Titan 2: isolated apps no longer see system-uid device apps
+
+Titan2Parts and LindroidUI share the system uid, and the core-uid
+shortcut in shouldFilterApplication returned before the isolated-caller
+rule, so isolated apps still saw org.titan2.parts / org.lindroid.ui.
+Apply the rule first.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../java/com/android/server/pm/AppsFilterBase.java     | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/services/core/java/com/android/server/pm/AppsFilterBase.java b/services/core/java/com/android/server/pm/AppsFilterBase.java
+index 103b9cdb0..52659f209 100644
+--- a/services/core/java/com/android/server/pm/AppsFilterBase.java
++++ b/services/core/java/com/android/server/pm/AppsFilterBase.java
+@@ -424,7 +424,8 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
+     /**
+      * Titan 2: an app isolated in AxSandbox sees only system apps, itself and other isolated
+      * apps (isolated apps can still see each other), not what else is installed.
+-     * Device-specific system apps that would give the custom firmware away stay hidden too.
++     * Device-specific system apps that would give the custom firmware away (Titan2Parts,
++     * LindroidUI) stay hidden too.
+      */
+     private static boolean hideFromIsolatedCaller(@Nullable Object callingSetting,
+             @NonNull PackageStateInternal targetPkgSetting) {
+@@ -528,15 +529,16 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
+                 }
+                 return true;
+             }
+-            if (targetAppId < Process.FIRST_APPLICATION_UID) {
+-                return false;
+-            }
++            // before the core-uid shortcut: Titan2Parts and LindroidUI run as the system uid
+             if (hideFromIsolatedCaller(callingSetting, targetPkgSetting)) {
+                 if (DEBUG_LOGGING || mFeatureConfig.isLoggingEnabled(callingAppId)) {
+                     log(callingSetting, targetPkgSetting, "BLOCKED (isolated caller)");
+                 }
+                 return true;
+             }
++            if (targetAppId < Process.FIRST_APPLICATION_UID) {
++                return false;
++            }
+             if (Process.isSdkSandboxUid(callingAppId)) {
+                 final int targetUid = UserHandle.getUid(userId, targetAppId);
+                 // we only allow sdk sandbox processes access to forcequeryable packages or
+-- 
+2.56.0
+

@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "name": "Paper light",
+  "author": "Titan 2",
+  "description": "Warm paper background, serif, time in words",
+  "colors": {
+    "background": "#F4F1EA",
+    "onSurface": "#1C1B1A",
+    "onSurfaceVariant": "#6E6A62",
+    "primary": "#B3261E",
+    "onPrimary": "#FFFFFF",
+    "scrim": "#F4F1EA/0.6"
+  },
+  "typography": { "font": "serif" },
+  "clock": { "face": "words", "dateFormat": "EEEE d MMMM",
+             "faces": { "words": { "case": "title" } } },
+  "layout": { "iconShape": "circle", "iconStyle": "color" }
+}

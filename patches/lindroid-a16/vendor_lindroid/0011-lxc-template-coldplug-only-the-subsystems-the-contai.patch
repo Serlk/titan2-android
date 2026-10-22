@@ -1,0 +1,43 @@
+From dcc9bc6e6c6b4d490271f6feae38561f63e06826 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Tue, 20 Oct 2026 01:48:37 +0300
+Subject: [PATCH] lxc template: coldplug only the subsystems the container uses
+
+systemd-udev-trigger runs "udevadm trigger --type=all --action=add":
+the kernel re-sends add for every device and Android's ueventd resets
+the nodes to its defaults (root 0600), losing what vendor init.rc set
+with chmod/chown. On the Unihertz Titan 2 the camera flash (/dev/flashlight)
+and the fingerprint (/dev/focaltech_fp) stopped working once the container
+started. Trigger input, drm, sound, usb and hidraw only.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lxc/template.sh | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/lxc/template.sh b/lxc/template.sh
+index 6a75f2e..737a498 100755
+--- a/lxc/template.sh
++++ b/lxc/template.sh
+@@ -338,6 +338,18 @@ prepare_rootfs_gsi() {
+   printf '%s\n' 'case ":$LD_PRELOAD:" in *:/usr/lib/libtls-padding.so:*) ;; *) export LD_PRELOAD=/usr/lib/libtls-padding.so${LD_PRELOAD:+:$LD_PRELOAD} ;; esac' \
+     > "$r/etc/profile.d/gsi-hybris-preload.sh"
+   echo "LD_PRELOAD=/usr/lib/libtls-padding.so" > "$r/etc/environment.d/91-gsi-hybris-preload.conf"
++  # Coldplug only what the container uses. The stock "udevadm trigger --type=all --action=add"
++  # makes the kernel re-send "add" for every device, and Android's ueventd answers by resetting
++  # the nodes to its defaults (root 0600): permissions that vendor init.rc set with chmod/chown
++  # (camera flash, fingerprint, ...) are lost until reboot - the torch and the fingerprint HAL
++  # break as soon as the container starts.
++  mkdir -p "$r/etc/systemd/system/systemd-udev-trigger.service.d"
++  cat > "$r/etc/systemd/system/systemd-udev-trigger.service.d/10-lindroid.conf" <<'UNIT'
++[Service]
++ExecStart=
++ExecStart=-udevadm trigger --type=subsystems --action=add
++ExecStart=-udevadm trigger --type=devices --action=add --subsystem-match=input --subsystem-match=drm --subsystem-match=sound --subsystem-match=usb --subsystem-match=hidraw
++UNIT
+   # /dev/input is a bind of Android's /dev/input (ueventd creates the nodes). When the uevent wins
+   # the race the node is missing and libinput/logind skip the device (keyboard): replay it.
+   mkdir -p "$r/etc/udev/rules.d"
+-- 
+2.56.0
+

@@ -1,0 +1,33 @@
+From a36c94aeceb0168355a37f8e9ddbe822566e90c0 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 17:00:03 +0300
+Subject: [PATCH] Settings: no two-pane layout below the split smallest width
+ (Titan 2)
+
+Activity embedding checks window bounds, not the configuration; require
+the configuration's smallestScreenWidthDp (capped by the framework via
+persist.sys.titan2.max_sw_dp) to reach config_activity_embed_split_min_sw_dp.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../settings/activityembedding/ActivityEmbeddingUtils.java    | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/com/android/settings/activityembedding/ActivityEmbeddingUtils.java b/src/com/android/settings/activityembedding/ActivityEmbeddingUtils.java
+index 75ab087..b9e4d88 100644
+--- a/src/com/android/settings/activityembedding/ActivityEmbeddingUtils.java
++++ b/src/com/android/settings/activityembedding/ActivityEmbeddingUtils.java
+@@ -84,6 +84,10 @@ public class ActivityEmbeddingUtils {
+      */
+     public static boolean isSettingsSplitEnabled(Context context) {
+         return SHOULD_ENABLE_LARGE_SCREEN_OPTIMIZATION
++                // Titan 2: no two-pane layout when the framework caps smallestScreenWidthDp
++                // (persist.sys.titan2.max_sw_dp) to keep the phone UI at low density.
++                && context.getResources().getConfiguration().smallestScreenWidthDp
++                        >= getMinSmallestScreenSplitWidthDp(context)
+                 && SplitController.getInstance(context).getSplitSupportStatus()
+                 == SplitController.SplitSupportStatus.SPLIT_AVAILABLE;
+     }
+-- 
+2.56.0
+

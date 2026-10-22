@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- uid system: own keys in Settings (titan2_*), writes to kernel nodes, key remapping -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.titan2.parts"
+    android:sharedUserId="android.uid.system">
+
+    <uses-permission android:name="android.permission.MANAGE_WIFI_COUNTRY_CODE" />
+    <uses-permission android:name="android.permission.REMAP_MODIFIER_KEYS" />
+    <!-- rear screen: display power, camera, Wi-Fi password for the QR code, photos to MediaStore -->
+    <uses-permission android:name="android.permission.MANAGE_DISPLAYS" />
+    <uses-permission android:name="android.permission.MANAGE_USB" />
+    <!-- UsbGuard: keyguard lock changes that come without a broadcast -->
+    <uses-permission android:name="android.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE" />
+    <uses-permission android:name="android.permission.NETWORK_SETTINGS" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_WIFI_CREDENTIAL" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.READ_CLIPBOARD_IN_BACKGROUND" />
+
+    <!-- the rear screen shell (RearShell, platform) reads settings and themes from here -->
+    <permission
+        android:name="org.titan2.permission.REAR_CONFIG"
+        android:protectionLevel="signature" />
+    <!-- notification access for the RearShell clock (toggle in the rear screen settings) -->
+    <uses-permission android:name="android.permission.MANAGE_NOTIFICATION_LISTENERS" />
+
+    <!-- letter shortcuts: list of app shortcuts (LauncherApps) -->
+    <uses-permission android:name="android.permission.ACCESS_SHORTCUTS" />
+    <application
+        android:name=".Titan2App"
+        android:persistent="true"
+        android:label="@string/app_name"
+        android:icon="@android:drawable/ic_menu_preferences"
+        android:defaultToDeviceProtectedStorage="true"
+        android:directBootAware="true">
+
+        <!-- the only Titan2Parts entry in Settings: the main page, sections inside -->
+        <activity
+            android:name=".TitanSettingsActivity"
+            android:label="@string/titan2_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.android.settings.action.EXTRA_SETTINGS" />
+            </intent-filter>
+            <meta-data android:name="com.android.settings.category"
+                android:value="com.android.settings.category.ia.homepage" />
+            <meta-data android:name="com.android.settings.summary"
+                android:resource="@string/titan2_summary" />
+            <meta-data android:name="com.android.settings.icon"
+                android:resource="@drawable/ic_titan2_settings" />
+            <!-- in one card with crDroid Settings (-60), before "Notifications" (-50):
+                 top_level_settings_expressive.xml of the Settings package -->
+            <meta-data android:name="com.android.settings.group_key"
+                android:value="top_level_personalize_category" />
+            <meta-data android:name="com.android.settings.order"
+                android:value="-55" />
+        </activity>
+
+        <!-- the rear screen and all settings of its RearShell shell; also opened from the rear
+             screen (long press on the clock, the "Settings" tile) -->
+        <activity
+            android:name=".RearScreenActivity"
+            android:label="@string/rear_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.titan2.parts.REAR_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- settings and themes for RearShell: device-protected, available before the first unlock -->
+        <provider
+            android:name=".RearConfigProvider"
+            android:authorities="org.titan2.parts.rear"
+            android:permission="org.titan2.permission.REAR_CONFIG"
+            android:directBootAware="true"
+            android:exported="true" />
+
+        <activity
+            android:name=".TouchpadActivity"
+            android:label="@string/touchpad_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="false" />
+
+        <activity
+            android:name=".KeySettingsActivity"
+            android:label="@string/keys_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.titan2.parts.KEY_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".WifiSettingsActivity"
+            android:label="@string/network_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="false">
+        </activity>
+
+
+        <activity
+            android:name=".KeyRemapActivity"
+            android:label="@string/remap_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="false">
+        </activity>
+
+        <activity
+            android:name=".BatterySettingsActivity"
+            android:label="@string/battery_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="false">
+        </activity>
+        <activity
+            android:name=".FirewallActivity"
+            android:label="@string/firewall_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="false">
+        </activity>
+
+        <activity
+            android:name=".PerformanceSettingsActivity"
+            android:label="@string/system_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="false">
+        </activity>
+
+        <activity
+            android:name=".SecuritySettingsActivity"
+            android:label="@string/security_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="false">
+        </activity>
+
+        <activity
+            android:name=".KeyboardLedSettingsActivity"
+            android:label="@string/kbd_led_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="false">
+        </activity>
+
+        <activity
+            android:name=".ScrollAssistantActivity"
+            android:label="@string/scroll_assistant_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive" />
+
+        <activity
+            android:name=".CursorAssistantActivity"
+            android:label="@string/cursor_assistant_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive" />
+
+        <activity
+            android:name=".KeyboardSetupActivity"
+            android:label="@string/kbd_setup_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive"
+            android:exported="false">
+        </activity>
+
+        <service
+            android:name=".RearService"
+            android:exported="false" />
+
+        <activity
+            android:name=".RearActivity"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+            android:excludeFromRecents="true"
+            android:resizeableActivity="true"
+            android:exported="false" />
+        <!-- Programmable keys: space, letters/chords, profiles -->
+        <activity
+            android:name=".SpaceBarActivity"
+            android:label="@string/space_key_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive" />
+        <activity
+            android:name=".LetterShortcutActivity"
+            android:label="@string/letters_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive" />
+        <activity
+            android:name=".AppProfilesActivity"
+            android:label="@string/profiles_title"
+            android:theme="@style/Theme.SubSettingsBase.Expressive" />
+    </application>
+</manifest>

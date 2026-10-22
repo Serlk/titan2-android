@@ -1,0 +1,16 @@
+// Verbose boot: the kernel log and logcat as text over the boot animation.
+cc_binary {
+    name: "titan2-bootconsole",
+    srcs: ["bootconsole.cpp"],
+    shared_libs: [
+        "libbase",
+        "libbinder",
+        "libgui",
+        "liblog",
+        "libnativewindow",
+        "libui",
+        "libutils",
+    ],
+    cflags: ["-Wall", "-Werror"],
+    system_ext_specific: true,
+}

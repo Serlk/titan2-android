@@ -1,0 +1,646 @@
+From 8606f8a0d8d67ae66ae0fdd65b103a2b5a0809f9 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 03:03:14 +0300
+Subject: [PATCH] Titan 2: AxSandbox: permission checks for state-changing
+ calls
+
+The ax_sandbox binder service did no caller checks at all; only the
+service policy guarded it, and that lets platform, GMS, NFC and
+Bluetooth apps in. Any of them could isolate an app or take it out of
+isolation, change its scopes, gids and data isolation, lock, hide or
+unlock any app, read and inject hidden notifications, or list every
+locked, hidden and isolated app.
+
+The binder interface is now a separate BinderService that checks the
+caller and then delegates; system_server keeps calling the methods of
+AxSandboxService directly, unchecked, since it calls them while serving
+other apps.
+
+- state changes, unlockApp, hidden notifications and the lists of all
+  apps: system uid only (system_server, the Sandbox manager and
+  AppLocker, both android.uid.system), run with a cleared identity
+- promptUnlock, lock state of other apps, lock and session listeners:
+  also STATUS_BAR_SERVICE (SystemUI and the recents launcher)
+- queries about one package: the system or the package itself
+  (SettingsProvider asks getSpoofedSetting with the reading app's
+  identity and package)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../android/server/wm/AxSandboxService.java   | 411 ++++++++++++++++--
+ 1 file changed, 376 insertions(+), 35 deletions(-)
+
+diff --git a/services/core/java/com/android/server/wm/AxSandboxService.java b/services/core/java/com/android/server/wm/AxSandboxService.java
+index d95af588d..42f35f8c0 100644
+--- a/services/core/java/com/android/server/wm/AxSandboxService.java
++++ b/services/core/java/com/android/server/wm/AxSandboxService.java
+@@ -71,7 +71,14 @@ import java.util.Map;
+ import java.util.Set;
+ import java.util.concurrent.ConcurrentHashMap;
+ 
+-public class AxSandboxService extends IAxSandboxManager.Stub implements IAxSandboxService {
++/**
++ * App sandbox / app lock state. The public methods of this class are the in-process API for
++ * system_server (ActivityManager, AppOps, AppsFilter, Vpn, NotificationManager, ...): they do no
++ * caller checks, because they are called while system_server serves some other app's binder
++ * call. Titan 2: the binder interface published as {@link Context#AX_SANDBOX_SERVICE} is
++ * {@link BinderService}, which checks the caller before delegating here.
++ */
++public class AxSandboxService implements IAxSandboxService {
+     private static final String TAG = "AxSandbox";
+ 
+     public static final String SANDBOX_PACKAGE = "com.android.applocker";
+@@ -138,6 +145,8 @@ public class AxSandboxService extends IAxSandboxManager.Stub implements IAxSandb
+         return Holder.INSTANCE;
+     }
+ 
++    private final BinderService mBinderService = new BinderService();
++
+     private AxSandboxService() {
+     }
+ 
+@@ -251,7 +260,7 @@ public class AxSandboxService extends IAxSandboxManager.Stub implements IAxSandb
+     public static void systemReady() {
+         AxSandboxService instance = get();
+         instance.systemReadyInternal();
+-        ServiceManager.addService(Context.AX_SANDBOX_SERVICE, instance);
++        ServiceManager.addService(Context.AX_SANDBOX_SERVICE, instance.mBinderService);
+         Slog.i(TAG, "AxSandboxService ready");
+     }
+ 
+@@ -265,13 +274,11 @@ public class AxSandboxService extends IAxSandboxManager.Stub implements IAxSandb
+         return mConfirmIntent;
+     }
+ 
+-    @Override
+     public int getAppLockState(String packageName) {
+         return computeAppLockState(packageName, UserHandle.getUserId(Binder.getCallingUid()))
+                 .ordinal();
+     }
+ 
+-    @Override
+     public int getAppLockStateForUser(String packageName, int userId) {
+         return computeAppLockState(packageName, userId).ordinal();
+     }
+@@ -307,19 +314,16 @@ public class AxSandboxService extends IAxSandboxManager.Stub implements IAxSandb
+                 : LOCKED;
+     }
+ 
+-    @Override
+     public boolean isPackageHidden(String packageName) {
+         if (mAppControlController == null) return false;
+         return mAppControlController.isPackageHidden(packageName);
+     }
+ 
+-    @Override
+     public void addLockedApp(String packageName) {
+         mAppControlController.addLockedApp(packageName);
+         notifyAppLockStateChanged(packageName, true);
+     }
+ 
+-    @Override
+     public void removeLockedApp(String packageName) {
+         mAppControlController.removeLockedApp(packageName);
+         int uid = getPackageUid(packageName);
+@@ -330,33 +334,27 @@ public class AxSandboxService extends IAxSandboxManager.Stub implements IAxSandb
+         notifyAppLockStateChanged(packageName, false);
+     }
+ 
+-    @Override
+     public void setPackageHidden(String packageName, boolean hidden) {
+         mAppControlController.setPackageHidden(packageName, hidden);
+         broadcastPackageChanged(packageName);
+     }
+ 
+-    @Override
+     public List<String> getLockedPackages() {
+         return mAppControlController.getLockedPackages();
+     }
+ 
+-    @Override
+     public List<String> getHiddenPackages() {
+         return mAppControlController.getHiddenPackages();
+     }
+ 
+-    @Override
+     public List<String> getLockablePackages() {
+         return mAppControlController.getLockablePackages();
+     }
+ 
+-    @Override
+     public boolean isPackageLockable(String packageName) {
+         return mAppControlController.isPackageLockable(packageName);
+     }
+ 
+-    @Override
+     public void unlockApp(String packageName, int userId) {
+         if (TextUtils.isEmpty(packageName)) return;
+         markSessionUnlocked(packageName, userId);
+@@ -366,7 +364,6 @@ public class AxSandboxService extends IAxSandboxManager.Stub implements IAxSandb
+         Slog.d(TAG, "unlockApp: " + packageName + " for user " + userId);
+     }
+ 
+-    @Override
+     public void promptUnlock(String packageName, int userId) {
+         if (TextUtils.isEmpty(packageName)) return;
+ 
+@@ -389,114 +386,93 @@ public class AxSandboxService extends IAxSandboxManager.Stub implements IAxSandb
+         }
+     }
+ 
+-    @Override
+     public void registerAppLockStateListener(IAppLockStateListener listener) {
+         mAppLockStateListeners.register(listener);
+     }
+ 
+-    @Override
+     public void unregisterAppLockStateListener(IAppLockStateListener listener) {
+         mAppLockStateListeners.unregister(listener);
+     }
+ 
+-    @Override
+     public void registerAppSessionListener(IAppSessionListener listener) {
+         mAppSessionListeners.register(listener);
+     }
+ 
+-    @Override
+     public void unregisterAppSessionListener(IAppSessionListener listener) {
+         mAppSessionListeners.unregister(listener);
+     }
+ 
+-    @Override
+     public void registerHiddenNotificationListener(IHiddenNotificationListener listener) {
+         mHiddenNotificationController.registerListener(listener);
+     }
+ 
+-    @Override
+     public void unregisterHiddenNotificationListener(IHiddenNotificationListener listener) {
+         mHiddenNotificationController.unregisterListener(listener);
+     }
+ 
+-    @Override
+     public List<HiddenNotificationInfo> getHiddenNotifications() {
+         return mHiddenNotificationController.getHiddenNotifications();
+     }
+ 
+-    @Override
+     public void onHiddenNotificationPosted(HiddenNotificationInfo info) {
+         mHiddenNotificationController.onHiddenNotificationPosted(info);
+     }
+ 
+-    @Override
+     public void onHiddenNotificationRemoved(String key) {
+         mHiddenNotificationController.onHiddenNotificationRemoved(key);
+     }
+ 
+-    @Override
+     public boolean isPackageSandboxed(String packageName) {
+         if (mAppControlController == null) return false;
+         return mAppControlController.isPackageSandboxed(packageName);
+     }
+ 
+-    @Override
+     public void addSandboxedPackage(String packageName) {
+         mAppControlController.setPackageSandboxed(packageName, true);
+         broadcastPackageChanged(packageName);
+     }
+ 
+-    @Override
+     public void removeSandboxedPackage(String packageName) {
+         mAppControlController.setPackageSandboxed(packageName, false);
+         broadcastPackageChanged(packageName);
+     }
+ 
+-    @Override
+     public List<String> getSandboxedPackages() {
+         return mAppControlController.getSandboxedPackages();
+     }
+ 
+-    @Override
+     public void setRestrictedGids(String packageName, int[] gids) {
+         mAppControlController.setRestrictedGids(packageName, gids);
+     }
+ 
+-    @Override
+     public int[] getRestrictedGids(String packageName) {
+         if (mAppControlController == null) return null;
+         return mAppControlController.getRestrictedGids(packageName);
+     }
+ 
+-    @Override
+     public boolean isSandboxDataIsolationEnabled(String packageName) {
+         if (mAppControlController == null) return false;
+         return mAppControlController.isDataIsolationEnabled(packageName);
+     }
+ 
+-    @Override
+     public void setSandboxDataIsolationEnabled(String packageName, boolean enabled) {
+         mAppControlController.setDataIsolationEnabled(packageName, enabled);
+     }
+ 
+-    @Override
+     public boolean isSpoofSettingEnabled(String packageName, String settingKey) {
+         if (mAppControlController == null) return false;
+         return mAppControlController.isSpoofSettingEnabled(packageName, settingKey);
+     }
+ 
+-    @Override
+     public void setSpoofSettingEnabled(String packageName, String settingKey, boolean enabled) {
+         mAppControlController.setSpoofSettingEnabled(packageName, settingKey, enabled);
+     }
+ 
+-    @Override
+     public List<String> getEnabledSpoofSettings(String packageName) {
+         if (mAppControlController == null) return java.util.Collections.emptyList();
+         return mAppControlController.getEnabledSpoofSettings(packageName);
+     }
+ 
+-    @Override
+     public String getSpoofedSetting(String callingPackage, String settingName) {
+         if (mAppControlController == null) return null;
+         final String spoofedValue = SettingsSpoofController.getSpoofedValue(settingName);
+@@ -1266,11 +1242,15 @@ public class AxSandboxService extends IAxSandboxManager.Stub implements IAxSandb
+     }
+ 
+     private int getPackageUid(String packageName) {
++        // as system_server: the package filter must not apply the caller's visibility
++        final long token = Binder.clearCallingIdentity();
+         try {
+             return mContext.getPackageManager()
+                     .getApplicationInfo(packageName, 0).uid;
+         } catch (PackageManager.NameNotFoundException e) {
+             return -1;
++        } finally {
++            Binder.restoreCallingIdentity(token);
+         }
+     }
+ 
+@@ -1279,4 +1259,365 @@ public class AxSandboxService extends IAxSandboxManager.Stub implements IAxSandb
+                SANDBOX_PACKAGE.equals(componentName.getPackageName()) &&
+                SANDBOX_ACTIVITY.equals(componentName.getClassName());
+     }
++
++    // Titan 2: caller checks of the binder interface.
++
++    /**
++     * Held by SystemUI and the recents launcher (signature|recents): they ask for the lock state
++     * of other apps, listen to lock / session changes and ask for the unlock prompt.
++     */
++    private static final String PERMISSION_SYSTEM_UI = android.Manifest.permission.STATUS_BAR_SERVICE;
++
++    /** system_server or an android.uid.system app (the Sandbox manager, AppLocker), any user. */
++    private static boolean isCallerSystem() {
++        return UserHandle.getAppId(Binder.getCallingUid()) == Process.SYSTEM_UID;
++    }
++
++    private static void enforceSystem(String method) {
++        if (!isCallerSystem()) {
++            throw new SecurityException("AxSandbox." + method + ": uid "
++                    + Binder.getCallingUid() + " is not the system");
++        }
++    }
++
++    private boolean isCallerGranted(String permission) {
++        return mContext != null && mContext.checkCallingPermission(permission)
++                == PackageManager.PERMISSION_GRANTED;
++    }
++
++    private void enforceSystemOrSystemUi(String method) {
++        if (!isCallerSystem() && !isCallerGranted(PERMISSION_SYSTEM_UI)) {
++            throw new SecurityException("AxSandbox." + method + ": uid "
++                    + Binder.getCallingUid() + " is not the system and lacks "
++                    + PERMISSION_SYSTEM_UI);
++        }
++    }
++
++    /** Whether packageName belongs to the calling uid (an app asking about itself). */
++    private boolean isCallerPackage(String packageName) {
++        if (TextUtils.isEmpty(packageName) || mContext == null) return false;
++        final int callingUid = Binder.getCallingUid();
++        final long token = Binder.clearCallingIdentity();
++        try {
++            final String[] packages = mContext.getPackageManager().getPackagesForUid(callingUid);
++            if (packages == null) return false;
++            for (String p : packages) {
++                if (packageName.equals(p)) return true;
++            }
++            return false;
++        } finally {
++            Binder.restoreCallingIdentity(token);
++        }
++    }
++
++    /** A query about packageName: the system, the package itself or (if given) a permission. */
++    private void enforceQuery(String method, String packageName, String permission) {
++        if (isCallerSystem() || isCallerPackage(packageName)
++                || (permission != null && isCallerGranted(permission))) {
++            return;
++        }
++        throw new SecurityException("AxSandbox." + method + ": uid " + Binder.getCallingUid()
++                + " may not query " + packageName);
++    }
++
++    /**
++     * The binder interface {@link Context#AX_SANDBOX_SERVICE}. The service policy alone lets
++     * platform, GMS, NFC and Bluetooth apps reach it, so every call checks the caller:
++     * <ul>
++     * <li>state changes (lock/hide/isolate an app, its scopes, gids, data isolation, unlock,
++     *     hidden notifications) and the lists of all apps: system uid only, that is
++     *     system_server and the platform-signed android.uid.system apps (Sandbox, AppLocker).
++     *     system_server itself uses the methods of {@link AxSandboxService} directly.
++     * <li>the unlock prompt, the lock state of other apps and the lock / session listeners:
++     *     also SystemUI and the recents launcher ({@link #PERMISSION_SYSTEM_UI}).
++     * <li>queries about one package: the system or that package itself. SettingsProvider runs
++     *     in system_server but calls getSpoofedSetting through this interface while it serves
++     *     the app, i.e. with the app's identity and the app's own package: allowed as "itself".
++     * </ul>
++     * State changes run with a cleared calling identity, as system_server.
++     */
++    private final class BinderService extends IAxSandboxManager.Stub {
++        @Override
++        public int getAppLockState(String packageName) {
++            enforceQuery("getAppLockState", packageName, PERMISSION_SYSTEM_UI);
++            final int userId = UserHandle.getCallingUserId();
++            final long token = Binder.clearCallingIdentity();
++            try {
++                return AxSandboxService.this.getAppLockStateForUser(packageName, userId);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public int getAppLockStateForUser(String packageName, int userId) {
++            if (userId != UserHandle.getCallingUserId()) {
++                enforceSystemOrSystemUi("getAppLockStateForUser");
++            } else {
++                enforceQuery("getAppLockStateForUser", packageName, PERMISSION_SYSTEM_UI);
++            }
++            final long token = Binder.clearCallingIdentity();
++            try {
++                return AxSandboxService.this.getAppLockStateForUser(packageName, userId);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public boolean isPackageHidden(String packageName) {
++            enforceQuery("isPackageHidden", packageName, null);
++            return AxSandboxService.this.isPackageHidden(packageName);
++        }
++
++        @Override
++        public void addLockedApp(String packageName) {
++            enforceSystem("addLockedApp");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.addLockedApp(packageName);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public void removeLockedApp(String packageName) {
++            enforceSystem("removeLockedApp");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.removeLockedApp(packageName);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public void setPackageHidden(String packageName, boolean hidden) {
++            enforceSystem("setPackageHidden");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.setPackageHidden(packageName, hidden);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public List<String> getLockedPackages() {
++            enforceSystem("getLockedPackages");
++            return AxSandboxService.this.getLockedPackages();
++        }
++
++        @Override
++        public List<String> getHiddenPackages() {
++            enforceSystem("getHiddenPackages");
++            return AxSandboxService.this.getHiddenPackages();
++        }
++
++        @Override
++        public List<String> getLockablePackages() {
++            enforceSystem("getLockablePackages");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                return AxSandboxService.this.getLockablePackages();
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public boolean isPackageLockable(String packageName) {
++            enforceQuery("isPackageLockable", packageName, null);
++            final long token = Binder.clearCallingIdentity();
++            try {
++                return AxSandboxService.this.isPackageLockable(packageName);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public void unlockApp(String packageName, int userId) {
++            enforceSystem("unlockApp");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.unlockApp(packageName, userId);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public void promptUnlock(String packageName, int userId) {
++            enforceSystemOrSystemUi("promptUnlock");
++            AxSandboxService.this.promptUnlock(packageName, userId); // clears the identity itself
++        }
++
++        @Override
++        public void registerAppLockStateListener(IAppLockStateListener listener) {
++            enforceSystemOrSystemUi("registerAppLockStateListener");
++            AxSandboxService.this.registerAppLockStateListener(listener);
++        }
++
++        @Override
++        public void unregisterAppLockStateListener(IAppLockStateListener listener) {
++            enforceSystemOrSystemUi("unregisterAppLockStateListener");
++            AxSandboxService.this.unregisterAppLockStateListener(listener);
++        }
++
++        @Override
++        public void registerAppSessionListener(IAppSessionListener listener) {
++            enforceSystemOrSystemUi("registerAppSessionListener");
++            AxSandboxService.this.registerAppSessionListener(listener);
++        }
++
++        @Override
++        public void unregisterAppSessionListener(IAppSessionListener listener) {
++            enforceSystemOrSystemUi("unregisterAppSessionListener");
++            AxSandboxService.this.unregisterAppSessionListener(listener);
++        }
++
++        @Override
++        public void registerHiddenNotificationListener(IHiddenNotificationListener listener) {
++            enforceSystem("registerHiddenNotificationListener");
++            AxSandboxService.this.registerHiddenNotificationListener(listener);
++        }
++
++        @Override
++        public void unregisterHiddenNotificationListener(IHiddenNotificationListener listener) {
++            enforceSystem("unregisterHiddenNotificationListener");
++            AxSandboxService.this.unregisterHiddenNotificationListener(listener);
++        }
++
++        @Override
++        public List<HiddenNotificationInfo> getHiddenNotifications() {
++            enforceSystem("getHiddenNotifications");
++            return AxSandboxService.this.getHiddenNotifications();
++        }
++
++        @Override
++        public void onHiddenNotificationPosted(HiddenNotificationInfo info) {
++            // NotificationManagerService calls the in-process method; via binder only the system
++            enforceSystem("onHiddenNotificationPosted");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.onHiddenNotificationPosted(info);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public void onHiddenNotificationRemoved(String key) {
++            enforceSystem("onHiddenNotificationRemoved");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.onHiddenNotificationRemoved(key);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public boolean isPackageSandboxed(String packageName) {
++            enforceQuery("isPackageSandboxed", packageName, null);
++            return AxSandboxService.this.isPackageSandboxed(packageName);
++        }
++
++        @Override
++        public void addSandboxedPackage(String packageName) {
++            enforceSystem("addSandboxedPackage");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.addSandboxedPackage(packageName);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public void removeSandboxedPackage(String packageName) {
++            enforceSystem("removeSandboxedPackage");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.removeSandboxedPackage(packageName);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public List<String> getSandboxedPackages() {
++            enforceSystem("getSandboxedPackages");
++            return AxSandboxService.this.getSandboxedPackages();
++        }
++
++        @Override
++        public void setRestrictedGids(String packageName, int[] gids) {
++            enforceSystem("setRestrictedGids");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.setRestrictedGids(packageName, gids);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public int[] getRestrictedGids(String packageName) {
++            enforceQuery("getRestrictedGids", packageName, null);
++            return AxSandboxService.this.getRestrictedGids(packageName);
++        }
++
++        @Override
++        public boolean isSpoofSettingEnabled(String packageName, String settingKey) {
++            enforceQuery("isSpoofSettingEnabled", packageName, null);
++            return AxSandboxService.this.isSpoofSettingEnabled(packageName, settingKey);
++        }
++
++        @Override
++        public void setSpoofSettingEnabled(String packageName, String settingKey,
++                boolean enabled) {
++            enforceSystem("setSpoofSettingEnabled");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.setSpoofSettingEnabled(packageName, settingKey, enabled);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public List<String> getEnabledSpoofSettings(String packageName) {
++            enforceQuery("getEnabledSpoofSettings", packageName, null);
++            return AxSandboxService.this.getEnabledSpoofSettings(packageName);
++        }
++
++        @Override
++        public boolean isSandboxDataIsolationEnabled(String packageName) {
++            enforceQuery("isSandboxDataIsolationEnabled", packageName, null);
++            return AxSandboxService.this.isSandboxDataIsolationEnabled(packageName);
++        }
++
++        @Override
++        public void setSandboxDataIsolationEnabled(String packageName, boolean enabled) {
++            enforceSystem("setSandboxDataIsolationEnabled");
++            final long token = Binder.clearCallingIdentity();
++            try {
++                AxSandboxService.this.setSandboxDataIsolationEnabled(packageName, enabled);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++        @Override
++        public String getSpoofedSetting(String callingPackage, String settingName) {
++            // most reads are of settings that are never spoofed: answer those without the
++            // package lookup (the spoofable keys are fixed, nothing about any app is revealed)
++            if (SettingsSpoofController.getSpoofedValue(settingName) == null) return null;
++            enforceQuery("getSpoofedSetting", callingPackage, null);
++            return AxSandboxService.this.getSpoofedSetting(callingPackage, settingName);
++        }
++    }
+ }
+-- 
+2.56.0
+

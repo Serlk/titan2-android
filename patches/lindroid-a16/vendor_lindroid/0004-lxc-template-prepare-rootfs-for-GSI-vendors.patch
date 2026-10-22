@@ -1,0 +1,50 @@
+From e10ad9054892e37f0a4b0a4106e2d98507346984 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 03:02:12 +0300
+Subject: [PATCH] lxc template: prepare rootfs for GSI vendors (VNDK apex for
+ libhybris, ignore power keys)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ lxc/template.sh | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/lxc/template.sh b/lxc/template.sh
+index a9af1c3..477a850 100755
+--- a/lxc/template.sh
++++ b/lxc/template.sh
+@@ -304,6 +304,31 @@ prepare_rootfs() {
+   # Additional configuration that must be done on the rootfs.
+   # Always add /dev/pts as /dev may be excluded.
+   mkdir -p "${LXC_ROOTFS}/dev/pts/"
++  prepare_rootfs_gsi
++}
++
++# GSI on an older vendor: vendor HALs (e.g. the gralloc mapper) link VNDK libraries that
++# Android 16 only ships in /apex/com.android.vndk.v<N>/lib64, which libhybris does not search.
++# Also, every key of the phone (power included) is forwarded to the container, so logind must
++# not power off or suspend on it.
++prepare_rootfs_gsi() {
++  hybris_path="/system/lib64:/vendor/lib64:/odm/lib64:/system_ext/lib64"
++  for d in /apex/com.android.vndk.v*/lib64; do
++    [ -d "$d" ] && hybris_path="${hybris_path}:${d}"
++  done
++  r="${LXC_ROOTFS}"
++  mkdir -p "$r/etc/systemd/system.conf.d" "$r/etc/environment.d" "$r/etc/profile.d" \
++           "$r/etc/systemd/logind.conf.d"
++  printf '[Manager]\nDefaultEnvironment=HYBRIS_LD_LIBRARY_PATH=%s\n' "$hybris_path" \
++    > "$r/etc/systemd/system.conf.d/90-gsi-hybris.conf"
++  echo "HYBRIS_LD_LIBRARY_PATH=$hybris_path" > "$r/etc/environment.d/90-gsi-hybris.conf"
++  echo "export HYBRIS_LD_LIBRARY_PATH=$hybris_path" > "$r/etc/profile.d/gsi-hybris.sh"
++  for f in "$r"/etc/sddm.conf.d/*.conf; do
++    [ -f "$f" ] && ! grep -q HYBRIS_LD_LIBRARY_PATH "$f" && \
++      sed -i "s#^GreeterEnvironment=#GreeterEnvironment=HYBRIS_LD_LIBRARY_PATH=$hybris_path,#" "$f"
++  done
++  printf '[Login]\nHandlePowerKey=ignore\nHandlePowerKeyLongPress=ignore\nHandleSuspendKey=ignore\nHandleHibernateKey=ignore\nHandleLidSwitch=ignore\nHandleLidSwitchExternalPower=ignore\n' \
++    > "$r/etc/systemd/logind.conf.d/50-lindroid-keys.conf"
+ }
+ 
+ unpack_rootfs() {
+-- 
+2.56.0
+

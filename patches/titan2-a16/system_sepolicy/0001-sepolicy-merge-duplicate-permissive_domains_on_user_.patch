@@ -1,0 +1,38 @@
+From 0f6d71b9e6938f09f11549ca5cbd586e71b66dd9 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Sun, 18 Oct 2026 13:51:03 +0300
+Subject: [PATCH] sepolicy: merge duplicate permissive_domains_on_user_builds
+ (TrebleDroid + crDroid)
+
+---
+ Android.bp | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/Android.bp b/Android.bp
+index 821fa11..3edee1b 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -713,6 +713,9 @@ precompiled_se_policy_binary {
+         "phhsu_daemon",
+         "tkcore",
+         "ueventd",
++        // crDroid
++        "backuptool",
++        "su",
+     ],
+     soong_config_variables: {
+         BOARD_USES_ODMIMAGE: {
+@@ -725,10 +728,6 @@ precompiled_se_policy_binary {
+     required: [
+         "sepolicy_neverallows",
+     ],
+-    permissive_domains_on_user_builds: [
+-        "backuptool",
+-        "su",
+-    ],
+ }
+ 
+ // policy for recovery
+-- 
+2.56.0
+

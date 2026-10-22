@@ -1,0 +1,19 @@
+# work directories (created by the scripts)
+/android/
+/src/
+/toolchains/
+/out/
+/downloads/
+/secrets/
+/tools/
+# external and proprietary files (scripts/prepare-vendor-titan2.sh)
+vendor-titan2/Plektra/*.apk
+vendor-titan2/MtkCamera/*.apk
+vendor-titan2/MtkCamera/*.xml
+vendor-titan2/MtkCamera/lib64/
+vendor-titan2/MtkCamera/Android.bp
+vendor-titan2/GoogleDialer/*.apk
+vendor-titan2/GoogleDialer/*.xml
+vendor-titan2/GoogleDialer/Android.bp
+__pycache__/
+*.pyc

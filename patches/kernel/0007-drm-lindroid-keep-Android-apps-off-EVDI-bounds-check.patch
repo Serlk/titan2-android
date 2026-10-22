@@ -1,0 +1,92 @@
+From 8c3b14903b6a213d4f9a5b8884da4e93ab32a2fe Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 17:22:27 +0300
+Subject: [PATCH] drm/lindroid: keep Android apps off EVDI, bounds-check vsync
+ slot
+
+/dev/dri nodes are 0666 gpu_device on Android and the EVDI ioctls are
+DRM_RENDER_ALLOW without DRM_AUTH, so any app could open the Lindroid
+display, take over the connection or answer other clients' callbacks.
+Only the container and the system use EVDI: refuse app, SDK sandbox and
+isolated uids at open.
+
+EVDI_VSYNC read displays[slot] before checking slot, a user-controlled
+u32 (out-of-bounds read). Check first. Also bound the non-XArray inflight
+batch loop by the array size (16, not 64).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ drivers/gpu/drm/lindroid/evdi_ioctl.c        |  8 ++++----
+ drivers/gpu/drm/lindroid/evdi_lindroid_drv.c | 16 ++++++++++++++++
+ 2 files changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/lindroid/evdi_ioctl.c b/drivers/gpu/drm/lindroid/evdi_ioctl.c
+index b335a85af..daf9694c8 100644
+--- a/drivers/gpu/drm/lindroid/evdi_ioctl.c
++++ b/drivers/gpu/drm/lindroid/evdi_ioctl.c
+@@ -302,7 +302,7 @@ void evdi_inflight_discard_owner(struct evdi_device *evdi, struct drm_file *owne
+ 			nr = 0;
+ 			id = 0;
+ 			spin_lock(&evdi->inflight_lock);
+-			while (nr < 64) {
++			while (nr < ARRAY_SIZE(batch)) {
+ 				req = idr_get_next(&evdi->inflight_idr, &id);
+ 				if (!req)
+ 					break;
+@@ -1089,12 +1089,12 @@ int evdi_ioctl_vsync(struct drm_device *dev,
+ 
+ 	slot = vs->display_id;
+ 
+-	if (unlikely(!READ_ONCE(evdi->displays[slot].power_mode)))
+-		return 0;
+-
+ 	if (slot < 0 || slot >= LINDROID_MAX_CONNECTORS)
+ 		return -EINVAL;
+ 
++	if (unlikely(!READ_ONCE(evdi->displays[slot].power_mode)))
++		return 0;
++
+ 	crtc = &evdi->pipe[slot].crtc;
+ 
+ 	if (drm_crtc_vblank_get(crtc) == 0) {
+diff --git a/drivers/gpu/drm/lindroid/evdi_lindroid_drv.c b/drivers/gpu/drm/lindroid/evdi_lindroid_drv.c
+index b0ae433af..540bc0bde 100644
+--- a/drivers/gpu/drm/lindroid/evdi_lindroid_drv.c
++++ b/drivers/gpu/drm/lindroid/evdi_lindroid_drv.c
+@@ -13,6 +13,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/of.h>
+ #include <linux/wait.h>
++#include <linux/cred.h>
+ 
+ extern int evdi_event_system_init(void);
+ extern void evdi_event_system_cleanup(void);
+@@ -106,10 +107,25 @@ static struct drm_driver evdi_driver = {
+ 	.patchlevel = DRIVER_PATCHLEVEL,
+ };
+ 
++/*
++ * Titan 2: the /dev/dri nodes are 0666 gpu_device on Android, so every app could drive the
++ * Lindroid display (hijack the connection, answer other clients' callbacks). Only the
++ * container and the system use it; refuse Android app, SDK sandbox and isolated uids.
++ */
++static bool evdi_android_app_uid(void)
++{
++	unsigned int appid = from_kuid(&init_user_ns, current_uid()) % 100000;
++
++	return (appid >= 10000 && appid < 30000) || (appid >= 90000 && appid < 100000);
++}
++
+ static int evdi_driver_open(struct drm_device *dev, struct drm_file *file)
+ {
+ 	struct evdi_file_priv *priv;
+ 
++	if (evdi_android_app_uid())
++		return -EACCES;
++
+ 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+ 	if (!priv)
+ 		return -ENOMEM;
+-- 
+2.56.0
+

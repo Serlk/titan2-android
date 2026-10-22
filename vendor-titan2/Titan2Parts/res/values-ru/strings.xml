@@ -1,0 +1,612 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Titan 2</string>
+    <string name="keys_title">Программируемые клавиши</string>
+    <string name="keys_summary">Боковые клавиши: фонарик, камера, приложения</string>
+    <string name="key_func1">Боковая клавиша 1</string>
+    <string name="key_func2">Боковая клавиша 2</string>
+    <string name="press_short">Короткое нажатие</string>
+    <string name="press_long">Долгое нажатие</string>
+    <string name="press_double">Двойное нажатие</string>
+    <string name="action_none">Ничего</string>
+    <string name="action_torch">Фонарик</string>
+    <string name="action_camera">Камера</string>
+    <string name="action_notifications">Шторка уведомлений</string>
+    <string name="action_ringer">Звук / вибрация</string>
+    <string name="action_app">Открыть %1$s</string>
+    <string name="softap_5g_title">Точка доступа: 5 ГГц</string>
+    <string name="softap_5g_entry_summary">Разрешить раздачу на 5 ГГц (страна Wi-Fi — US)</string>
+    <string name="softap_5g_summary">Драйвер MediaTek для России разрешает точке доступа только 2,4 ГГц. Если включить, код страны Wi-Fi меняется на US: станут доступны каналы 5 ГГц 36–48 и 149–165. Формально это может не соответствовать местным правилам использования радиочастот.</string>
+    <string name="remap_title">Клавиатура Titan 2</string>
+    <string name="remap_summary">Переназначение клавиш</string>
+    <string name="remap_note">Работает во всех приложениях, без экранной клавиатуры. В полях ввода Sym и Fn по-прежнему обрабатывает Plektra.</string>
+    <string name="key_back">Назад</string>
+    <string name="key_recents">Недавние приложения</string>
+    <string-array name="remap_targets">
+        <item>Без изменений</item>
+        <item>Ctrl</item>
+        <item>Alt</item>
+        <item>Shift</item>
+        <item>Meta</item>
+        <item>Sym</item>
+        <item>Caps Lock</item>
+        <item>Tab</item>
+        <item>Esc</item>
+        <item>Удаление вперёд</item>
+        <item>Назад</item>
+        <item>Домой</item>
+        <item>Недавние приложения</item>
+        <item>Меню</item>
+        <item>Поиск</item>
+        <item>Пауза / воспроизведение</item>
+    </string-array>
+    <string name="battery_title">Аккумулятор</string>
+    <string name="battery_summary">Лимит заряда, состояние батареи</string>
+    <string name="charge_limit_title">Ограничение заряда</string>
+    <string name="charge_limit_off">Выкл.</string>
+    <string name="charge_limit_summary">На пороге зарядка останавливается и возобновляется, когда заряд упадёт на %1$d%%. Батарея, которую не держат на 100%%, изнашивается медленнее.</string>
+    <string name="battery_info">Состояние батареи</string>
+    <string name="battery_level">Заряд</string>
+    <string name="battery_current">Ток</string>
+    <string name="battery_voltage">Напряжение</string>
+    <string name="battery_temp">Температура</string>
+    <string name="battery_cycles">Циклы заряда</string>
+    <string name="battery_capacity">Ёмкость (фактическая / паспортная)</string>
+    <string name="battery_capacity_value">%1$d / %2$d мА·ч</string>
+    <string name="battery_wear">Износ</string>
+    <string name="status_charging">заряжается</string>
+    <string name="status_full">заряжена</string>
+    <string name="status_not_charging">не заряжается</string>
+    <string name="status_discharging">разряжается</string>
+    <string name="unit_ma">%1$d мА</string>
+    <string name="unit_mv">%1$d мВ</string>
+    <string name="unit_celsius">%1$.1f °C</string>
+    <string name="network_title">Сеть</string>
+    <string name="tcp_cc_title">Алгоритм TCP</string>
+    <string-array name="tcp_cc_entries">
+        <item>CUBIC (по умолчанию)</item>
+        <item>BBR — быстрее при слабой мобильной связи</item>
+    </string-array>
+    <string name="network_summary">Точка доступа 5 ГГц, алгоритм TCP, межсетевой экран</string>
+    <string name="touchpad_title">Тачпад клавиатуры</string>
+    <string name="touchpad_mode">Свайпы по клавиатуре</string>
+    <string-array name="touchpad_mode_entries">
+        <item>Прокрутка и курсор в тексте</item>
+        <item>Только прокрутка</item>
+        <item>Выключено</item>
+    </string-array>
+    <string name="touchpad_sensitivity">Чувствительность</string>
+    <string-array name="touchpad_sensitivity_entries">
+        <item>Низкая</item>
+        <item>Средняя</item>
+        <item>Высокая</item>
+    </string-array>
+    <string name="touchpad_invert">Обратная прокрутка</string>
+    <string name="action_rear_selfie">Задний экран: селфи на основную камеру (ещё раз — снимок)</string>
+    <string name="action_rear_qr">Задний экран: QR-код (Wi-Fi или буфер обмена)</string>
+    <string name="action_rear_light">Задний экран: подсветка</string>
+    <string name="rear_qr_wifi">Wi-Fi</string>
+    <string name="rear_qr_clipboard">Буфер обмена</string>
+    <string name="rear_qr_nothing">Нет Wi-Fi, буфер обмена пуст</string>
+    <string name="rear_selfie_taken">Сохранено</string>
+    <string name="usb_guard_title">USB: только зарядка при блокировке</string>
+    <string name="usb_guard_entry_summary">Отключать передачу данных по USB на заблокированном экране</string>
+    <string name="usb_guard_summary">Пока телефон заблокирован, передача данных по USB (файлы, adb, аксессуары) выключена — работает только зарядка. После разблокировки включается снова.</string>
+    <string name="action_privacy">Выключить / включить камеру и микрофон</string>
+    <string name="perf_title">Производительность</string>
+    <string name="perf_summary">Профиль CPU, планировщик ввода-вывода, журнал загрузки</string>
+    <string name="cpu_profile_title">Профиль CPU</string>
+    <string-array name="cpu_profile_entries">
+        <item>Баланс (по умолчанию)</item>
+        <item>Экономия: CPU не выше 60%</item>
+        <item>Производительность: выше минимальная частота</item>
+    </string-array>
+    <string name="io_sched_title">Планировщик ввода-вывода</string>
+    <string-array name="io_sched_entries">
+        <item>mq-deadline (по умолчанию)</item>
+        <item>kyber: низкие задержки</item>
+        <item>bfq: справедливый, плавнее под нагрузкой</item>
+        <item>none</item>
+    </string-array>
+    <string name="bootlog_title">Журнал загрузки</string>
+    <string name="bootlog_summary">Журнал ядра и logcat каждой загрузки хранятся в /metadata (переживают бутлуп и сброс данных в загрузчике) и после загрузки копируются в /data/local/tmp/titan2log. Для отладки: в журналах могут быть личные данные.</string>
+    <string name="verbose_boot_title">Подробная загрузка</string>
+    <string name="verbose_boot_summary">Во время загрузки показывать журнал ядра и logcat на экране, как на обычном Linux, вместо анимации.</string>
+    <string name="firewall_title">Межсетевой экран</string>
+    <string name="firewall_summary">Доступ в интернет для каждого приложения</string>
+    <string name="firewall_note">Выключено — у приложения нет никакой сети: ни Wi-Fi, ни мобильных данных, ни VPN. Системные службы без значка не показаны.</string>
+    <string name="kbd_led_title">Подсветка клавиатуры</string>
+    <string name="kbd_led_entry_summary">Продолжительность, яркость, автоматическая регулировка</string>
+    <string name="kbd_led_auto">Автоматическая регулировка</string>
+    <string name="kbd_led_auto_summary">Яркость подстраивается под окружающее освещение</string>
+    <string name="kbd_led_timeout">Продолжительность подсветки клавиатуры</string>
+    <string-array name="kbd_led_timeout_entries">
+        <item>Всегда выключена</item>
+        <item>3 секунды</item>
+        <item>5 секунд</item>
+        <item>10 секунд</item>
+        <item>15 секунд</item>
+        <item>30 секунд</item>
+        <item>Как время отключения экрана</item>
+    </string-array>
+    <string name="kbd_led_brightness">Яркость подсветки клавиатуры</string>
+    <string name="kbd_gesture_title">Жесты клавиатуры</string>
+    <string name="kbd_gesture_summary">Помощник прокрутки и курсора, сенсорная панель клавиатуры</string>
+    <string name="scroll_assistant_title">Помощник прокрутки</string>
+    <string name="cursor_assistant_title">Помощник курсора</string>
+    <string name="cursor_assistant_info">В поле ввода коснитесь тачпада клавиатуры дважды, чтобы включить режим курсора. Свайпами курсор двигается вверх, вниз, влево и вправо. Чтобы выйти, снова коснитесь дважды или просто начните печатать.</string>
+    <string name="slide_light_title">Включать подсветку свайпом</string>
+    <string name="slide_light_summary">Если подсветка погасла, длинный свайп поперёк клавиатуры снова её включит</string>
+    <string name="slide_light_summary_off">Недоступно, пока подсветка всегда выключена</string>
+    <string name="alt_wake_title">Пробуждение клавишей Alt</string>
+    <string name="alt_wake_summary">Нажатие Alt включает погасший экран</string>
+    <string name="scroll_assistant_info">Свайп по клавиатуре прокручивает экран в приложениях с вертикальной или горизонтальной прокруткой.</string>
+    <string name="scroll_assistant_help">\nЕсли прокрутка в приложении работает неудобно, выберите для него другой режим.</string>
+    <string name="scroll_assistant_summary">Проведите пальцем и нажмите: свайп прокручивает, касание нажимает.\nРежим скольжения 1: свайп прокручивает, касания не действуют.\nРежим скольжения 2: работает как колесо мыши, только в приложениях, которые его поддерживают.\nРежим мыши 1: левые две пятых тачпада двигают указатель мыши; остальная часть прокручивает, а касание там нажимает в точке указателя.\nРежим мыши 2: то же самое, но указатель двигают правые две пятых.</string>
+    <string name="scroll_assistant_app_list">Список приложений</string>
+    <string name="scroll_assistant_apply_all">Применить ко всем приложениям</string>
+    <string-array name="touchpad_event_type">
+        <item>Закрыть</item>
+        <item>Проведите пальцем и нажмите</item>
+        <item>Режим скольжения 1</item>
+        <item>Режим скольжения 2</item>
+        <item>Режим мыши 1</item>
+        <item>Режим мыши 2</item>
+    </string-array>
+    <string name="double_tap_wake_title">Пробуждение двойным касанием тачпада</string>
+    <string name="double_tap_wake_summary">Два быстрых касания тачпада клавиатуры включают экран</string>
+    <!-- Программируемые клавиши -->
+    <string name="key_setting_title">Настройка клавиш</string>
+    <string name="func1_key_title">Клавиша Func1</string>
+    <string name="func2_key_title">Клавиша Func2</string>
+    <string name="sym_key_title">Клавиша Sym</string>
+    <string name="fn_key_title">Клавиша Fn</string>
+    <string name="shift_key_title">Клавиша Shift</string>
+    <string name="alt_key_title">Клавиша Alt</string>
+    <string name="back_key_title">Клавиша «Назад»</string>
+    <string name="recent_key_title">Клавиша «Недавние»</string>
+    <string name="space_key_title">Пробел</string>
+    <string name="letter_key_title">Буквенные клавиши</string>
+    <string name="mode_ptt">Клавиша PTT (рация)</string>
+    <string name="mode_programmable">Программируемая клавиша</string>
+    <string name="mode_shortcut">Настройки ярлыков</string>
+    <string name="ptt_app_name">Приложение PTT: %1$s</string>
+    <string name="ptt_app_picker_title">Выберите приложение PTT</string>
+    <string name="ptt_none">Нет</string>
+    <string name="category_fmt">%1$s — %2$s</string>
+    <string name="func_none">Нет</string>
+    <string name="func_media">Медиаклавиша</string>
+    <string name="func_power">Клавиша питания</string>
+    <string name="func_sym">Клавиша Sym</string>
+    <string name="func_ctrl">Клавиша Ctrl</string>
+    <string name="func_tab">Клавиша Tab</string>
+    <string name="func_shift">Клавиша Shift</string>
+    <string name="func_alt">Клавиша Alt</string>
+    <string name="func_home">Клавиша «Домой»</string>
+    <string name="func_back">Клавиша «Назад»</string>
+    <string name="func_recent">Клавиша «Недавние»</string>
+    <string name="func_magic">Волшебная клавиша</string>
+    <string name="footer_sym">Открывает выбор символов в приложении клавиатуры, если он там есть.</string>
+    <string name="footer_media">Одно нажатие — пауза или воспроизведение, два — следующий трек, удержание — предыдущий.</string>
+    <string name="footer_magic">Удерживайте эту клавишу и нажмите букву, чтобы запустить её ярлык в любом приложении.</string>
+    <string name="footer_shift">Shift, затем буква — одна заглавная. Shift дважды — фиксация заглавных (в Plektra).</string>
+    <string name="footer_alt">Alt, затем клавиша — её символ Alt. Alt дважды — фиксация слоя Alt (в Plektra).</string>
+    <string name="footer_power">Работает как кнопка питания: выключает и включает экран.</string>
+    <string name="footer_none">Сейчас %1$s ничего не делает. Её можно сделать другой клавишей, например Sym или медиаклавишей.</string>
+    <string name="footer_shortcut">Короткое, долгое и двойное нажатие могут запускать каждое свою функцию или приложение.</string>
+    <string name="footer_plektra">В полях ввода Plektra распознаёт Sym и Fn по скан-коду, поэтому там переназначенные Sym и Fn по-прежнему работают как Sym и Ctrl. В режиме ярлыков, а также как «Нет» или «Волшебная клавиша» клавиша не достаётся и клавиатуре.</string>
+    <string name="sc_none">Нет операции</string>
+    <string name="sc_flashlight">Включить фонарик</string>
+    <string name="sc_record">Начать запись звука</string>
+    <string name="sc_screenshot">Снимок экрана</string>
+    <string name="sc_silent">Беззвучный режим</string>
+    <string name="sc_screen_off">Выключить экран</string>
+    <string name="sc_vibration">Режим вибрации</string>
+    <!-- Пробел -->
+    <string name="space_double_category">Двойное нажатие</string>
+    <string name="space_answer_title">Ответ на звонок</string>
+    <string name="space_answer_summary">На экране входящего вызова дважды нажмите пробел, чтобы ответить</string>
+    <string name="space_reject_title">Завершение вызова</string>
+    <string name="space_reject_summary">На экране вызова дважды нажмите пробел, чтобы завершить вызов</string>
+    <string name="space_capture_title">Съёмка фото</string>
+    <string name="space_capture_summary">В камере дважды нажмите пробел, чтобы сделать снимок</string>
+    <string name="space_click_category">Нажатие</string>
+    <string name="space_home_title">На рабочий стол</string>
+    <string name="space_home_summary">Вне поля ввода нажатие пробела возвращает на рабочий стол</string>
+    <string name="space_note">Эти функции не работают во время ввода текста.</string>
+    <!-- Буквенные ярлыки -->
+    <string name="letters_title">Сочетания клавиш</string>
+    <string name="letters_info">Включите сочетания клавиш, чтобы назначить каждой букве свою функцию. На рабочем столе короткое или долгое нажатие такой клавиши быстро запускает назначенное.</string>
+    <string name="letters_magic_info">Если удерживать клавишу, назначенную волшебной, ярлыки работают в любом приложении, пока не активно поле ввода.</string>
+    <string name="letter_not_set">Не задано</string>
+    <string name="letter_set_title">Ярлык для клавиши %1$s</string>
+    <string name="letter_all_apps">Все приложения</string>
+    <string name="letter_all_shortcuts">Все ярлыки</string>
+    <string name="letter_delete">Удалить</string>
+    <!-- Расширения клавиш Titan2Parts: профили, аккорды, долгий пробел -->
+    <string name="state_off">Выкл.</string>
+    <string name="keys_extra_category">Дополнительно (Titan 2)</string>
+    <string name="profile_override_title">Свои настройки для «%1$s»</string>
+    <string name="profile_override_summary">Пока это приложение на экране, клавиша работает так, как задано здесь, а не по общим настройкам.</string>
+    <string name="profile_inherit">Как в общих настройках</string>
+    <string name="profile_remove">Удалить профиль</string>
+    <string name="profiles_title">Профили приложений</string>
+    <string name="profiles_entry_summary">Другие функции клавиш в выбранных приложениях</string>
+    <string name="profiles_add">Добавить приложение</string>
+    <string name="profiles_info">Профиль меняет режим, функцию или действия выбранных клавиш, пока его приложение на экране. Переназначенные клавиши переключаются через мгновение после открытия приложения.</string>
+    <string name="chords_title">Аккорды с Sym</string>
+    <string name="chords_entry_summary">Sym + буква: вставка текста или запуск приложения</string>
+    <string name="chords_info">Удерживайте Sym (или Fn и Sym) и нажмите букву, чтобы вставить текстовый фрагмент или открыть приложение или ярлык.</string>
+    <string name="chords_letters">Буквы</string>
+    <string name="chord_modifier_title">Сочетание</string>
+    <string name="chord_mod_sym">Sym + буква</string>
+    <string name="chord_mod_fnsym">Fn + Sym + буква</string>
+    <string name="chord_in_fields_title">И в полях ввода</string>
+    <string name="chord_in_fields_summary">Выкл.: аккорды работают, только пока не активно поле ввода, и при наборе Sym остаётся за Plektra. Вкл.: назначенные буквы перехватываются и у Plektra (нужно для вставки текста). Само нажатие Sym Plektra всё равно видит и может открыть страницу символов.</string>
+    <string name="chord_text">Текстовый фрагмент</string>
+    <string name="chord_text_hint">например: С уважением, {date}</string>
+    <string name="chord_text_help">Вставляется через буфер обмена (Ctrl+V), через секунду прежнее содержимое буфера возвращается. {date} и {time} заменяются текущими датой и временем, {date:dd.MM.yyyy} или {time:HH:mm} — по своему шаблону.</string>
+    <string name="space_long_layout_title">Удержание пробела — смена раскладки</string>
+    <string name="space_long_layout_summary">При наборе текста удержание пробела полсекунды переключает раскладку или язык клавиатуры (как Ctrl+Пробел). Автоповтор пробела пропадает, пробел печатается при отпускании.</string>
+    <string name="sc_screen_record">Запись экрана</string>
+    <string name="kbd_setup_title">Настройка клавиатуры Titan 2</string>
+    <string name="kbd_setup_intro">Выберите готовый набор или настройте клавиатуру под себя. Всё это можно поменять потом в «Настройки → Titan 2».</string>
+    <string name="kbd_setup_preset">Готовый набор</string>
+    <string name="kbd_setup_preset_summary">Сразу задаёт клавиши Fn и Sym, помощники тачпада и время подсветки</string>
+    <string-array name="kbd_setup_preset_entries">
+        <item>Для набора текста (рекомендуется): Fn = Ctrl, курсор и прокрутка тачпадом</item>
+        <item>Заводские настройки: Fn = Домой, прокрутка тачпадом</item>
+        <item>Минимальный: Fn = Ctrl, тачпад выключен</item>
+    </string-array>
+    <string name="kbd_setup_ime_cat">Ввод</string>
+    <string name="kbd_setup_ime">Клавиатура (способ ввода)</string>
+    <string name="kbd_setup_ime_summary">Plektra сделана для аппаратной клавиатуры: страницы Sym, символы на Alt, навигация через Fn</string>
+    <string name="kbd_setup_layouts">Языки и раскладки</string>
+    <string name="kbd_setup_layouts_summary">Раскладки физической клавиатуры (например, английская и русская)</string>
+    <string name="kbd_setup_keys_cat">Клавиши</string>
+    <string name="kbd_setup_fn">Клавиша Fn</string>
+    <string name="kbd_setup_sym">Клавиша Sym</string>
+    <string name="kbd_setup_more_keys">Ещё: ярлыки, боковые клавиши, профили</string>
+    <string name="kbd_setup_touchpad_cat">Тачпад клавиатуры</string>
+    <string name="kbd_setup_scroll_summary">Свайп по клавиатуре прокручивает содержимое</string>
+    <string name="kbd_setup_cursor_summary">В поле ввода: двойное касание клавиатуры, затем свайпы двигают курсор</string>
+    <string name="kbd_setup_touchpad_mode">Режим для всех приложений</string>
+    <string name="kbd_setup_touchpad_mode_summary">Для каждого приложения можно выбрать отдельно в «Помощнике прокрутки»</string>
+    <string name="kbd_setup_done">Готово</string>
+    <string name="kbd_setup_done_summary">Все эти настройки есть в «Настройки → Titan 2»</string>
+    <!-- раздел «Titan 2» в Настройках -->
+    <string name="titan2_title">Titan 2</string>
+    <string name="titan2_summary">Клавиатура, тачпад, сеть, аккумулятор</string>
+    <string name="keyboard_section_title">Клавиатура</string>
+    <string name="keyboard_section_summary">Способ ввода, клавиши, пробел, буквенные ярлыки, профили приложений</string>
+    <string name="side_keys_title">Боковые клавиши</string>
+    <string name="side_keys_summary">Func1 и Func2: фонарик, камера, приложения</string>
+    <string name="touchpad_summary">Помощники прокрутки и курсора, пробуждение двойным касанием</string>
+    <string name="kbd_led_summary">Яркость, время, включение свайпом</string>
+    <string name="system_title">Система</string>
+    <string name="security_title">Безопасность</string>
+    <string name="kbd_led_brightness_auto">Задаёт датчик света, пока включена автоматическая регулировка</string>
+    <string name="rear_title">Задний экран</string>
+    <string name="rear_summary">Второй дисплей, часы, приложения, пробуждение касанием или переворотом</string>
+    <string name="rear_enabled_title">Рабочий стол на заднем экране</string>
+    <string name="rear_enabled_summary">Задний экран как второй дисплей со своей оболочкой. Засыпает сам, просыпается двойным касанием или при перевороте телефона</string>
+    <string name="rear_modes_title">Режимы для боковых клавиш</string>
+    <string name="rear_modes_summary">Селфи на основную камеру, QR-код, подсветка: назначьте на Func1/Func2</string>
+    <!-- задний экран: настройки оболочки RearShell (RearScreenActivity и фрагменты) -->
+    <string name="rear_cat_screen">Экран</string>
+    <string name="rear_timeout_title">Гасить через</string>
+    <string name="rear_brightness_title">Яркость</string>
+    <string name="rear_brightness_off">Задний экран выключен</string>
+    <string name="rear_wake_tap_title">Будить двойным касанием</string>
+    <string name="rear_wake_tap_summary">Двойное касание погашенного заднего экрана включает его</string>
+    <string name="rear_wake_pose_title">Только когда задний экран смотрит вверх</string>
+    <string name="rear_wake_pose_summary">Не реагировать, пока телефон стоит вертикально или лежит основным экраном вверх, например в кармане</string>
+    <string name="rear_wake_flip_title">Будить при перевороте</string>
+    <string name="rear_wake_flip_summary">Включать задний экран, когда телефон кладут основным экраном вниз</string>
+    <string name="rear_system_decors_title">Системные элементы</string>
+    <string name="rear_system_decors_summary">Строка состояния, шторка, панель навигации и жест «назад» на заднем экране. Настройки Android и приложения не адаптированы под этот экран</string>
+    <string name="rear_cat_lock">Когда телефон заблокирован</string>
+    <string name="rear_lock_mode_title">Что показывать на заднем экране</string>
+    <string name="rear_unlock_title">Разблокировка с заднего экрана</string>
+    <string name="rear_unlock_summary">Свайп вверх на часах — ввод PIN-кода или графического ключа. Выключено: свайп вверх только показывает подсказку</string>
+    <string name="rear_lock_torch_title">Фонарик на блокировке</string>
+    <string name="rear_lock_torch_summary">Оставить фонарик в быстрой панели и жестах, когда телефон заблокирован</string>
+    <string name="rear_notif_access_title">Уведомления на часах</string>
+    <string name="rear_notif_access_summary">Разрешить оболочке считать уведомления (и показывать заголовки, если это разрешено режимом блокировки)</string>
+    <string name="rear_cat_shell">Оболочка заднего экрана</string>
+    <string name="rear_cat_keys">Боковые клавиши</string>
+    <string name="rear_themes_title">Темы</string>
+    <string name="rear_themes_summary">Цвета, шрифты, циферблаты, фон; импорт, экспорт, редактор</string>
+    <string name="rear_clock_title">Часы</string>
+    <string name="rear_clock_summary">Циферблат, секунды, дата, заряд, касания часов</string>
+    <string name="rear_home_title">Домашний экран и анимации</string>
+    <string name="rear_home_summary">Страницы избранного, сетка, значки, порядок списка, скорость анимаций</string>
+    <string name="rear_gestures_title">Жесты</string>
+    <string name="rear_gestures_summary">Навигация поверх приложений и свайпы на домашнем экране</string>
+    <string name="rear_tiles_title">Быстрая панель</string>
+    <string name="rear_tiles_summary">Какие плитки и в каком порядке</string>
+    <string name="rear_apps_title">Приложения на заднем экране</string>
+    <string name="rear_apps_summary">Все приложения или только выбранные</string>
+    <string name="rear_favorites_title">Избранное</string>
+    <string name="rear_favorites_summary">Приложения на страницах после часов, в вашем порядке</string>
+    <string name="rear_editor_title">Редактор темы</string>
+    <string name="rear_from_theme">Как в теме</string>
+    <string name="rear_cat_face">Циферблат</string>
+    <string name="rear_face_title">Циферблат</string>
+    <string name="rear_seconds_title">Секунды</string>
+    <string name="rear_24h_title">Формат времени</string>
+    <string name="rear_cat_clock_info">Под часами</string>
+    <string name="rear_date_title">Дата</string>
+    <string name="rear_date_format_title">Формат даты</string>
+    <string name="rear_date_custom_title">Свой формат даты</string>
+    <string name="rear_date_custom_summary">Шаблон для DateFormat.getBestDateTimePattern, например EEE d MMM. Пусто — как в теме</string>
+    <string name="rear_battery_title">Заряд батареи</string>
+    <string name="rear_notif_count_title">Число уведомлений</string>
+    <string name="rear_cat_clock_touch">Касания часов</string>
+    <string name="rear_clock_tap_title">Касание</string>
+    <string name="rear_clock_double_tap_title">Двойное касание</string>
+    <string name="rear_clock_long_press_title">Долгое нажатие</string>
+    <string name="rear_cat_nav">Навигация поверх приложений</string>
+    <string name="rear_gestures_enable_title">Жесты навигации</string>
+    <string name="rear_gestures_enable_summary">Жестовая навигация Android на заднем экране не работает — у оболочки свои жесты</string>
+    <string name="rear_sens_title">Чувствительность</string>
+    <string name="rear_g_bottom">Свайп вверх от нижнего края</string>
+    <string name="rear_g_hold">Свайп вверх с удержанием</string>
+    <string name="rear_g_left">Свайп от левого края</string>
+    <string name="rear_g_right">Свайп от правого края</string>
+    <string name="rear_haptic_title">Вибрация при жестах</string>
+    <string name="rear_cat_home_gestures">На домашнем экране</string>
+    <string name="rear_swipe_up_title">Свайп вверх</string>
+    <string name="rear_swipe_down_title">Свайп вниз</string>
+    <string name="rear_swipe_anywhere_title">Свайп вниз в любом месте</string>
+    <string name="rear_swipe_anywhere_summary">Выключено: только от верхнего края</string>
+    <string name="rear_gestures_note">На блокировке свайп вверх на часах всегда открывает разблокировку (или подсказку), а свайп вниз — быструю панель только с фонариком и яркостью.</string>
+    <string name="rear_cat_home">Домашний экран</string>
+    <string name="rear_home_favorites_title">Страницы избранного</string>
+    <string name="rear_home_favorites_summary">Страницы с избранными приложениями после часов</string>
+    <string name="rear_columns_title">Столбцы</string>
+    <string name="rear_rows_title">Строки</string>
+    <string name="rear_labels_title">Подписи</string>
+    <string name="rear_icon_shape_title">Форма значков</string>
+    <string name="rear_icon_style_title">Стиль значков</string>
+    <string name="rear_icon_size_title">Размер значков</string>
+    <string name="rear_sort_title">Порядок списка приложений</string>
+    <string name="rear_cat_anim">Анимации</string>
+    <string name="rear_anim_title">Анимации</string>
+    <string name="rear_anim_summary">Шторки идут за пальцем, страницы и приложения открываются плавно. Учитывается и системный масштаб анимаций</string>
+    <string name="rear_anim_speed_title">Скорость</string>
+    <string name="rear_anim_style_title">Стиль</string>
+    <string name="rear_apps_only_title">Только выбранные приложения</string>
+    <string name="rear_apps_only_summary">Выключено: на заднем экране все приложения со значком</string>
+    <string name="rear_apps_search">Поиск приложений</string>
+    <string name="rear_apps_list">Приложения</string>
+    <string name="rear_apps_select_all">Отметить все найденные</string>
+    <string name="rear_apps_select_none">Снять все найденные</string>
+    <string name="rear_favorites_info">Порядок — перетаскиванием за «ручку» или долгим нажатием. Ещё: долгое нажатие на значок на заднем экране добавляет или убирает его</string>
+    <string name="rear_favorites_add">Добавить приложения</string>
+    <string name="rear_favorites_empty">Избранного пока нет</string>
+    <string name="rear_tiles_info">Отметьте нужные плитки и расставьте перетаскиванием. На блокировке показывается только фонарик (если разрешён)</string>
+    <string name="rear_drag">Перетащить</string>
+    <string name="rear_remove">Убрать</string>
+    <string name="rear_work_badge">(рабочий)</string>
+    <string name="rear_themes_actions">Создать и импортировать</string>
+    <string name="rear_theme_create">Новая тема</string>
+    <string name="rear_theme_create_summary">На основе текущей: меняйте только то, что нужно</string>
+    <string name="rear_theme_import">Импорт темы</string>
+    <string name="rear_theme_import_summary">Файл theme.json или .zip с theme.json, шрифтами и картинками</string>
+    <string name="rear_themes_list">Темы</string>
+    <string name="rear_themes_footer">Касание — применить тему, шестерёнка — остальное: изменить, копировать, экспорт, JSON. Формат тем — THEMES.md в исходниках RearShell; экспорт любой темы даёт готовый пример.</string>
+    <string name="rear_theme_broken">Ошибка темы: %1$s</string>
+    <string name="rear_theme_builtin">Встроенная</string>
+    <string name="rear_theme_user">Своя</string>
+    <string name="rear_theme_extends">на основе «%1$s»</string>
+    <string name="rear_theme_apply">Применить</string>
+    <string name="rear_theme_edit">Изменить</string>
+    <string name="rear_theme_customize">Настроить (новая тема на её основе)</string>
+    <string name="rear_theme_duplicate">Копировать</string>
+    <string name="rear_theme_copy_name">%1$s (копия)</string>
+    <string name="rear_theme_custom_name">%1$s (моя)</string>
+    <string name="rear_theme_export">Экспорт</string>
+    <string name="rear_theme_exported">Тема сохранена</string>
+    <string name="rear_theme_show_json">Показать JSON</string>
+    <string name="rear_theme_delete">Удалить</string>
+    <string name="rear_theme_delete_confirm">Удалить тему «%1$s»?</string>
+    <string name="rear_theme_delete_parent">Удалить тему «%1$s»? На ней основаны и перестанут работать: %2$s</string>
+    <string name="rear_theme_failed">Не получилось: %1$s</string>
+    <string name="rear_theme_import_failed">Тема не импортирована</string>
+    <string name="rear_theme_imported">Тема «%1$s» импортирована</string>
+    <string name="rear_color_hue">Оттенок</string>
+    <string name="rear_color_saturation">Насыщенность</string>
+    <string name="rear_color_value">Яркость</string>
+    <string name="rear_color_alpha">Непрозрачность</string>
+    <string name="rear_color_inherit">Как у родителя</string>
+    <string name="rear_ed_cat_theme">Тема</string>
+    <string name="rear_ed_name">Название</string>
+    <string name="rear_ed_author">Автор</string>
+    <string name="rear_ed_description">Описание</string>
+    <string name="rear_ed_empty">Не задано</string>
+    <string name="rear_ed_base">На основе</string>
+    <string name="rear_ed_base_none">Ни на чём (значения по умолчанию)</string>
+    <string name="rear_ed_cat_colors">Цвета</string>
+    <string name="rear_ed_cat_elements">Цвета отдельных элементов</string>
+    <string name="rear_ed_inherited">Унаследовано: %1$s</string>
+    <string name="rear_ed_inherit_item">Как у родителя %1$s</string>
+    <string name="rear_ed_on">Вкл</string>
+    <string name="rear_ed_off">Выкл</string>
+    <string name="rear_ed_cat_font">Шрифт</string>
+    <string name="rear_ed_font">Шрифт</string>
+    <string name="rear_ed_weight">Насыщенность</string>
+    <string name="rear_ed_clock_font">Шрифт часов</string>
+    <string name="rear_ed_clock_weight">Насыщенность цифр</string>
+    <string name="rear_ed_same">Как у текста</string>
+    <string name="rear_ed_scale">Размер текста</string>
+    <string name="rear_ed_label_size">Размер подписей</string>
+    <string name="rear_ed_font_file">Из файла…</string>
+    <string name="rear_ed_file">Файл %1$s</string>
+    <string name="rear_ed_cat_clock">Часы</string>
+    <string name="rear_ed_digits">Цифры</string>
+    <string name="rear_ed_clock_size">Размер часов</string>
+    <string name="rear_ed_ticks">Метки</string>
+    <string name="rear_ed_numbers">Цифры 12, 3, 6, 9</string>
+    <string name="rear_ed_hand_width">Толщина стрелок</string>
+    <string name="rear_ed_language">Язык</string>
+    <string name="rear_ed_case">Регистр</string>
+    <string name="rear_ed_leading_zero">Ведущий ноль</string>
+    <string name="rear_ed_blink">Мигающий разделитель</string>
+    <string name="rear_ed_separator">Разделитель</string>
+    <string name="rear_ed_space">Пробел</string>
+    <string name="rear_ed_cat_wallpaper">Фон</string>
+    <string name="rear_ed_wall_type">Тип</string>
+    <string name="rear_ed_wall_color">Цвет</string>
+    <string name="rear_ed_gradient_color">Цвет градиента %1$d</string>
+    <string name="rear_ed_angle">Направление градиента</string>
+    <string name="rear_ed_image">Картинка</string>
+    <string name="rear_ed_image_none">Не выбрана</string>
+    <string name="rear_ed_blur">Размытие</string>
+    <string name="rear_ed_dim">Затемнение</string>
+    <string name="rear_ed_cat_grid">Значки и сетка</string>
+    <string name="rear_ed_label_lines">Строк подписи</string>
+    <string name="rear_ed_indicator">Точки страниц</string>
+    <string name="rear_ed_cat_save">Сохранение</string>
+    <string name="rear_ed_save">Сохранить</string>
+    <string name="rear_ed_save_summary">Как тему «%1$s»: только изменённое, остальное — от родителя</string>
+    <string name="rear_ed_save_apply">Сохранить и применить</string>
+    <string name="rear_ed_saved">Сохранено</string>
+    <string name="rear_ed_saved_applied">Сохранено и применено</string>
+    <string name="rear_ed_save_failed">Не сохранить</string>
+    <string name="rear_ed_footer">«Как у родителя» в списке или в диалоге цвета убирает своё значение. Шрифты и картинки копируются в тему.</string>
+    <string-array name="rear_timeout_entries">
+        <item>15 секунд</item>
+        <item>30 секунд</item>
+        <item>1 минута</item>
+        <item>2 минуты</item>
+        <item>5 минут</item>
+        <item>Никогда</item>
+    </string-array>
+    <string-array name="rear_lock_mode_entries">
+        <item>Ничего (экран чёрный)</item>
+        <item>Только часы</item>
+        <item>Часы, заряд и число уведомлений</item>
+        <item>Часы и заголовки уведомлений (менее приватно)</item>
+    </string-array>
+    <string-array name="rear_tri_entries">
+        <item>Как в теме</item>
+        <item>Показывать</item>
+        <item>Скрывать</item>
+    </string-array>
+    <string-array name="rear_24h_entries">
+        <item>Как в теме</item>
+        <item>Как в системе</item>
+        <item>24 часа</item>
+        <item>12 часов</item>
+    </string-array>
+    <string-array name="rear_face_entries">
+        <item>Цифровой</item>
+        <item>Цифровой с секундами</item>
+        <item>Стрелочный</item>
+        <item>Словами</item>
+        <item>Минимализм</item>
+    </string-array>
+    <string-array name="rear_date_entries">
+        <item>Как в теме</item>
+        <item>пн 5 янв.</item>
+        <item>понедельник 5 января</item>
+        <item>5 января</item>
+        <item>05.01</item>
+        <item>05.01.2026</item>
+        <item>понедельник</item>
+        <item>пн 5</item>
+    </string-array>
+    <string-array name="rear_home_action_entries">
+        <item>Список приложений</item>
+        <item>Быстрая панель</item>
+        <item>Недавние</item>
+        <item>Следующий циферблат</item>
+        <item>Фонарик</item>
+        <item>Погасить задний экран</item>
+        <item>Настройки заднего экрана</item>
+        <item>Ничего</item>
+    </string-array>
+    <string-array name="rear_nav_action_entries">
+        <item>Домой</item>
+        <item>Назад</item>
+        <item>Недавние</item>
+        <item>Фонарик</item>
+        <item>Погасить задний экран</item>
+        <item>Ничего</item>
+    </string-array>
+    <string-array name="rear_sens_entries">
+        <item>Низкая</item>
+        <item>Обычная</item>
+        <item>Высокая</item>
+    </string-array>
+    <string-array name="rear_icon_shape_entries">
+        <item>Как у приложения</item>
+        <item>Круг</item>
+        <item>Скруглённый квадрат (squircle)</item>
+        <item>Квадрат со скруглением</item>
+    </string-array>
+    <string-array name="rear_icon_style_entries">
+        <item>Цветные</item>
+        <item>Монохромные</item>
+    </string-array>
+    <string-array name="rear_sort_entries">
+        <item>А → Я</item>
+        <item>Я → А</item>
+        <item>Сначала новые</item>
+        <item>Сначала старые</item>
+    </string-array>
+    <string-array name="rear_anim_style_entries">
+        <item>Стандартный</item>
+        <item>Выразительный (пружинистый)</item>
+        <item>Сдержанный</item>
+        <item>Без анимаций</item>
+    </string-array>
+    <string-array name="rear_tile_entries">
+        <item>Фонарик</item>
+        <item>Wi-Fi</item>
+        <item>Не беспокоить</item>
+        <item>Звук</item>
+        <item>Погасить</item>
+        <item>Настройки</item>
+    </string-array>
+    <string-array name="rear_ed_token_entries">
+        <item>background — фон</item>
+        <item>surface — плитки, клавиши</item>
+        <item>onSurface — текст, цифры</item>
+        <item>onSurfaceVariant — второстепенный текст</item>
+        <item>primary — акцент, активные плитки</item>
+        <item>onPrimary — текст на primary</item>
+        <item>secondary — второй акцент</item>
+        <item>accent — секунды, стрелки</item>
+        <item>error — ошибки</item>
+        <item>scrim — затемнение под панелями</item>
+    </string-array>
+    <string-array name="rear_ed_digits_entries">
+        <item>Обычные</item>
+        <item>Жирные</item>
+        <item>Тонкие</item>
+        <item>Контур</item>
+        <item>Моноширинные</item>
+    </string-array>
+    <string-array name="rear_ed_wall_entries">
+        <item>Цвет</item>
+        <item>Градиент</item>
+        <item>Картинка</item>
+    </string-array>
+    <string-array name="rear_ed_ticks_entries">
+        <item>Все минуты</item>
+        <item>Только часы</item>
+        <item>Нет</item>
+    </string-array>
+    <string-array name="rear_ed_lang_entries">
+        <item>Как в системе</item>
+        <item>Русский</item>
+        <item>Английский</item>
+    </string-array>
+    <string-array name="rear_ed_case_entries">
+        <item>строчные</item>
+        <item>ПРОПИСНЫЕ</item>
+        <item>С заглавной</item>
+    </string-array>
+</resources>

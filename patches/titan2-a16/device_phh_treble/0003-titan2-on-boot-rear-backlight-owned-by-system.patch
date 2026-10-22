@@ -1,0 +1,31 @@
+From a65316dbd4bdd7245df2fa12b56a4a63e6ac54f4 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Mon, 19 Oct 2026 01:24:05 +0300
+Subject: [PATCH] titan2-on-boot: rear backlight owned by system (Titan2Parts
+ RearService)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ titan2-on-boot.sh | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/titan2-on-boot.sh b/titan2-on-boot.sh
+index 8ad62bd..f6a636c 100755
+--- a/titan2-on-boot.sh
++++ b/titan2-on-boot.sh
+@@ -12,10 +12,10 @@ setprop ctl.restart camerahalserver
+ sleep 8
+ setprop ctl.restart cameraserver
+ 
+-# Rear screen (410x502, DSI-2): not needed. On stock the Agui framework drove its backlight; on the GSI it
++# Rear screen (410x502, DSI-2): off by default, turned on by the Titan2Parts modes (selfie, QR, light). On stock the Agui framework drove its backlight; on the GSI it
+ # stayed on even with the screen off. Turn the backlight off, switch the display off, block touch.
+ bl=/sys/class/leds/lcd-backlight1/brightness
+-echo 0 > $bl; chown root:root $bl; chmod 0444 $bl
++echo 0 > $bl; chown system:system $bl; chmod 0644 $bl   # only Titan2Parts (RearService) turns it on
+ id=$(dumpsys display | sed -n 's/.*displayId \([0-9]*\),.* real 410 x 502.*/\1/p' | head -1)
+ [ -n "$id" ] && cmd display disable-display "$id"
+ for d in /sys/class/input/input*; do
+-- 
+2.56.0
+

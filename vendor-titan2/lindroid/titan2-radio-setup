@@ -1,0 +1,44 @@
+#!/bin/sh
+# Radio and hardware in the Lindroid container (Debian 13): RTL-SDR Blog V4 and Flipper Zero.
+#   sudo titan2-radio-setup
+# - librtlsdr from the RTL-SDR Blog fork: the V4 has an R828D tuner and a built-in HF upconverter, old
+#   librtlsdr does not know them; installed into /usr/local and overrides the packaged one;
+# - rtl-433 (433/868 MHz), dump1090-mutability (ADS-B), gqrx-sdr, satdump (NOAA/Meteor);
+# - picocom/minicom (UART via Flipper), python3-pyserial + flipperzero-protobuf (Flipper RPC).
+# There is no DVB driver in GKI, so no blacklist is needed: libusb gets the dongle directly.
+set -eu
+[ "$(id -u)" = 0 ] || { echo "run with sudo"; exit 1; }
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y --no-install-recommends \
+    git cmake build-essential pkg-config libusb-1.0-0-dev ca-certificates \
+    picocom minicom python3-serial python3-pip python3-venv usbutils
+# radio programs one at a time: if one is missing in this Debian version, the rest still install
+for p in rtl-433 dump1090-mutability gqrx-sdr satdump; do
+    apt-get install -y --no-install-recommends "$p" || echo "skipped $p (not in the repository)"
+done
+
+src=/usr/local/src/rtl-sdr-blog
+if [ ! -d "$src" ]; then
+    git clone --depth 1 https://github.com/rtlsdrblog/rtl-sdr-blog "$src"
+fi
+cmake -S "$src" -B "$src/build" -DINSTALL_UDEV_RULES=OFF -DDETACH_KERNEL_DRIVER=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr/local
+cmake --build "$src/build" -j"$(nproc)"
+cmake --install "$src/build"
+ldconfig
+
+# Flipper Zero RPC (protobuf) in a separate venv, so the system python is left alone
+python3 -m venv /opt/flipper
+/opt/flipper/bin/pip install --upgrade flipperzero-protobuf pyserial
+ln -sf /opt/flipper/bin/python /usr/local/bin/flipper-python
+
+# access to the dongle and the port without root
+for u in $(getent group sudo | cut -d: -f4 | tr , ' '); do
+    usermod -aG plugdev,dialout "$u" || true
+done
+
+echo
+echo "Done. RTL-SDR check:  rtl_test -t   (the V4 is detected as 'RTL-SDR Blog V4')"
+echo "Flipper Zero:             sudo titan2-usb-serial; picocom /dev/ttyACM0"
+echo "SDR++ (not in Debian): .deb for debian trixie aarch64 at https://github.com/AlexandreRouma/SDRPlusPlus/releases"

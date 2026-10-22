@@ -1,0 +1,38 @@
+From 7cc92014bc6478d14467b1534f9f09babb2d6317 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 01:16:33 +0300
+Subject: [PATCH 14/14] Titan 2: boot animation on the main display only
+
+SurfaceFlinger may report the rear display first after a system_server restart; the animation
+then ran at 410x502 in a corner of the main screen.
+---
+ cmds/bootanimation/BootAnimation.cpp | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/cmds/bootanimation/BootAnimation.cpp b/cmds/bootanimation/BootAnimation.cpp
+index d66cd7dac..f7f53d95e 100644
+--- a/cmds/bootanimation/BootAnimation.cpp
++++ b/cmds/bootanimation/BootAnimation.cpp
+@@ -520,6 +520,19 @@ status_t BootAnimation::initDisplaysAndSurfaces() {
+         return NAME_NOT_FOUND;
+     }
+ 
++    // Titan 2: SurfaceFlinger makes the rear display (port ro.titan2.rear_display_port) "front"
++    // when the main one goes off while the rear is on (as on foldables); after a system_server
++    // restart the animation would then run at 410x502 in a corner of the main. Main only.
++    const int rearPort = android::base::GetIntProperty("ro.titan2.rear_display_port", -1);
++    if (rearPort >= 0 && displayIds.size() > 1) {
++        std::erase_if(displayIds, [rearPort](PhysicalDisplayId id) {
++            return static_cast<int>(id.value & 0xff) == rearPort;
++        });
++        if (displayIds.empty()) {
++            displayIds = SurfaceComposerClient::getPhysicalDisplayIds();
++        }
++    }
++
+     // If Multi-Display isn't explicitly enabled, ignore all displays after the first one
+     if (!com::android::graphics::bootanimation::flags::multidisplay()) {
+         displayIds.erase(displayIds.begin() + 1, displayIds.end());
+-- 
+2.56.0
+
