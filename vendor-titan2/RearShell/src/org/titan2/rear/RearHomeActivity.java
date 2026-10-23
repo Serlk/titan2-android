@@ -1,12 +1,14 @@
 package org.titan2.rear;
 
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.app.KeyguardManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.LauncherApps;
+import android.util.Log;
 import android.graphics.Insets;
 import android.graphics.RenderEffect;
 import android.graphics.Shader;
@@ -22,6 +24,7 @@ import android.text.format.DateFormat;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.View;
+import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.FrameLayout;
@@ -36,21 +39,31 @@ import org.titan2.rear.common.ThemeSpec;
 import org.titan2.rear.common.Wallpapers;
 import org.titan2.rear.common.faces.ClockFace;
 import org.titan2.rear.common.faces.Faces;
+import org.titan2.rear.facet.FacetController;
+import org.titan2.rear.facet.FacetView;
+import org.titan2.rear.widget.WidgetPage;
+import org.titan2.rear.widget.WidgetStyle;
+import org.titan2.rear.widget.Widgets;
 
 import java.util.ArrayList;
+import java.lang.ref.WeakReference;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Rear display home screen (SECONDARY_HOME). Pages: clock -> favorites (per settings).
+ * Rear display home screen (SECONDARY_HOME). Pages: the clock, then the widget pages and the
+ * favorites in the order of the settings (RearKeys.PAGES).
  * On top are sheets that follow the finger: the app list (swipe up), the quick panel
  * (swipe down), PIN/pattern entry (swipe up on the lock screen). All settings and the theme come from
  * the Titan2Parts provider (Cfg, ThemeStore); there is no settings screen of its own.
  *
  * Lock: it is shown over the keyguard too (showWhenLocked), but then only the clock to the extent of
- * lock_mode; no favorites, app list or toggles that change the phone state.
+ * lock_mode and the widget pages allowed on the lock screen (their buttons act on a hold there,
+ * see widget.Press); no favorites, app list or toggles that change the phone state.
  *
  * The rear display normally has no system decorations (no status bar, navigation bar, wallpaper
  * or keyguard presentation): the shell draws its own background and lock screen. When the user
@@ -60,8 +73,9 @@ import java.util.TreeSet;
  */
 public class RearHomeActivity extends Activity implements PagerView.Listener,
         QuickPanel.Host, DrawerView.Host, BouncerView.Host, ClockView.Actions, Cfg.Listener,
-        RearNotificationListener.Callback {
+        RearNotificationListener.Callback, FacetController.Host {
 
+    private static final String TAG = "RearShell";
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private Cfg mCfg;
     private KeyguardManager mKm;
@@ -106,6 +120,66 @@ public class RearHomeActivity extends Activity implements PagerView.Listener,
     private float mVStart;
 
     private final Runnable mRebuild = () -> rebuild(false);
+
+    /** Widget pages, kept across rebuilds (their state and listeners). */
+    private final Map<String, WidgetPage> mWidgets = new HashMap<>();
+    /** Between onStart and onStop: the rear screen shows the shell. */
+    private boolean mStarted;
+    /** A page asked for by an intent (the timer alarm), shown after the next rebuild. */
+    private String mPendingPage;
+    static final String EXTRA_PAGE = "org.titan2.rear.extra.PAGE";
+    private static WeakReference<RearHomeActivity> sResumed = new WeakReference<>(null);
+
+    /** Notification light effects (FacetController). */
+    private FacetView mFacet;
+    /** The rear screen was woken for the effect: put it to sleep when the effect ends. */
+    private boolean mFacetSleepAfter;
+
+    @Override
+    public void playFacet(FacetController.FacetRequest r, boolean sleepAfter) {
+        mFacetSleepAfter = sleepAfter;
+        mFacet.play(r.effect, r.color, r.icon, r.app, r.title,
+                mTheme != null ? mTheme.font : null, r.repeat);
+    }
+
+    private void onFacetFinished() {
+        if (!mFacetSleepAfter) return;
+        mFacetSleepAfter = false;
+        // keep the black overlay up until the screen is off: the clock must not flash
+        mFacet.setVisibility(View.VISIBLE);
+        RearActions.sleep(this, rearId());
+    }
+
+    @Override
+    public int accentColor() {
+        return mTheme != null ? mTheme.spec.accent : 0xFF4FC3F7;
+    }
+
+    @Override
+    public boolean isLocked() {
+        return mLocked;
+    }
+
+    /** The home pages are on top with no sheet open: a side swipe turns the page, not "Back". */
+    public static boolean takesSideSwipes() {
+        RearHomeActivity a = sResumed.get();
+        return a != null && !a.mDrawerSheet.isActive() && !a.mPanelSheet.isActive()
+                && !a.mBouncerSheet.isActive();
+    }
+
+    /** Shows the given page (RearKeys.W_*) on the rear screen, from anywhere in the shell. */
+    public static void showPage(Context c, String page) {
+        int id = RearDisplays.findId(c);
+        if (id < 0) return;
+        Intent i = new Intent(c, RearHomeActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(EXTRA_PAGE, page);
+        try {
+            c.startActivity(i, ActivityOptions.makeBasic().setLaunchDisplayId(id).toBundle());
+        } catch (RuntimeException e) {
+            Log.w(TAG, "show page " + page + ": " + e);
+        }
+    }
     private final Runnable mHideHint = this::hideHint;
 
     private final OnBackInvokedCallback mBack = () -> {
@@ -248,6 +322,7 @@ public class RearHomeActivity extends Activity implements PagerView.Listener,
         RearNotificationListener.addCallback(this);
         // the binding to the SystemUI unlock service lasts while the process lives (see UnlockClient)
         UnlockClient.get(this).bind();
+        FacetController.setHost(this);
 
         startService(new Intent(this, RearGestureService.class));
         mLocked = mKm.isKeyguardLocked();
@@ -389,6 +464,10 @@ public class RearHomeActivity extends Activity implements PagerView.Listener,
             mBouncerSheet.setFlingVelocity(fling);
             mPanelSheet.setFlingVelocity(fling);
         });
+        // notification light effects: over everything
+        mFacet = new FacetView(this);
+        mFacet.setListener(this::onFacetFinished);
+        mRoot.addView(mFacet, new FrameLayout.LayoutParams(-1, -1));
     }
 
     /** The wallpaper stays full-bleed; content, sheets and the hint keep clear of the bars. */
@@ -484,6 +563,7 @@ public class RearHomeActivity extends Activity implements PagerView.Listener,
         }
         mLauncherApps.unregisterCallback(mAppsCallback);
         RearNotificationListener.removeCallback(this);
+        FacetController.clearHost(this);
         super.onDestroy();
     }
 
@@ -495,21 +575,99 @@ public class RearHomeActivity extends Activity implements PagerView.Listener,
             finish();
             return;
         }
+        sResumed = new WeakReference<>(this);
         checkLock();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (sResumed.get() == this) sResumed = new WeakReference<>(null);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        mStarted = true;
+        updateWidgets();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        mStarted = false;
+        updateWidgets();
+        mFacet.stop();
+        mFacetSleepAfter = false;
         // left the screen: a typed PIN must not remain
         if (mBouncerSheet.isActive()) mBouncerSheet.jumpTo(false);
+    }
+
+    /** Only the widget on the shown page listens (sensors, sessions, ticks). */
+    private void updateWidgets() {
+        if (mPager == null) return;
+        int page = mPager.getPage();
+        for (int i = 0; i < mPager.getChildCount(); i++) {
+            View v = mPager.getChildAt(i);
+            if (v instanceof WidgetPage) ((WidgetPage) v).setActive(mStarted && i == page);
+        }
+    }
+
+    /** Locked pocket protection: the current touch was a palm or several fingers. */
+    private boolean mPalm;
+    /** A contact this wide (dp, ~19 mm; a fingertip is 7-10 mm) is a palm or a pocket.
+     * Without contact size from the touch IC only the several-fingers check works. */
+    private static final float PALM_DP = 120;
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        int action = ev.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN && mFacet != null
+                && mFacet.getVisibility() == View.VISIBLE) {
+            // a touch during an effect: stop it, the rear screen stays on as usual
+            mFacet.stop();
+            mFacetSleepAfter = false;
+            mPalm = true;
+            return true;
+        }
+        if (action == MotionEvent.ACTION_DOWN) mPalm = false;
+        if (!mPalm && mLocked && mCfg != null && mCfg.bool(RearKeys.LOCK_PALM)
+                && (ev.getPointerCount() > 1 || ev.getTouchMajor() > PALM_DP * mDp)) {
+            // cancel what the touch started and ignore it until all fingers are up
+            mPalm = true;
+            MotionEvent cancel = MotionEvent.obtain(ev);
+            cancel.setAction(MotionEvent.ACTION_CANCEL);
+            super.dispatchTouchEvent(cancel);
+            cancel.recycle();
+        }
+        if (mPalm) return true;
+        return super.dispatchTouchEvent(ev);
+    }
+
+    /** Shows the page of the given widget if it is on the home screen now. */
+    private boolean showWidgetPage(String id) {
+        for (int i = 0; i < mPager.getChildCount(); i++) {
+            View v = mPager.getChildAt(i);
+            if (v instanceof WidgetPage && id.equals(((WidgetPage) v).id())) {
+                mPager.setPage(i, true);
+                updateWidgets();
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        // the "Home" gesture: close the sheets, back to the clock
         closeAll(true);
+        String page = intent.getStringExtra(EXTRA_PAGE);
+        if (page != null) {
+            // a widget asks for its page (the timer alarm); after the next rebuild if needed
+            if (!showWidgetPage(page)) mPendingPage = page;
+            return;
+        }
+        // the "Home" gesture: back to the clock
         mPager.setPage(0, true);
     }
 
@@ -627,13 +785,15 @@ public class RearHomeActivity extends Activity implements PagerView.Listener,
         mBlack.setVisibility(black ? View.VISIBLE : View.GONE);
         mBlack.setAlpha(1f);
 
-        // pages: clock + favorites (only when unlocked)
+        // pages: the clock, then the widget pages and the favorites in the order of the
+        // settings; locked: only the widgets allowed there, no favorites
         List<View> pages = new ArrayList<>();
         pages.add(mClock);
         AppGridView.Style style = AppGridView.style(t, mTheme.font,
                 Effective.columns(t, mCfg), Effective.rows(t, mCfg), Effective.labels(t, mCfg),
                 Effective.iconShape(t, mCfg), Effective.iconStyle(t, mCfg),
                 Effective.iconSize(t, mCfg));
+        List<Apps.Entry> favs = new ArrayList<>();
         if (!mLocked) {
             // loading every app label is slow: not on every lock/unlock or settings change
             Set<String> allowed = allowedPackages();
@@ -649,17 +809,37 @@ public class RearHomeActivity extends Activity implements PagerView.Listener,
                 mApps = mAllApps;
             }
             if (mCfg.bool(RearKeys.HOME_FAVORITES)) {
-                List<Apps.Entry> favs = Apps.favorites(mApps, mCfg.list(RearKeys.FAVORITES));
-                int perPage = style.columns * style.rows;
-                for (int start = 0; start < favs.size(); start += perPage) {
-                    pages.add(grid(favs.subList(start, Math.min(favs.size(), start + perPage)),
-                            style));
-                }
+                favs = Apps.favorites(mApps, mCfg.list(RearKeys.FAVORITES));
             }
             mDrawer.grid.setup(new ArrayList<>(mApps), style);
         } else {
             mApps = new ArrayList<>();
             mDrawer.grid.setup(mApps, style);
+        }
+        WidgetStyle ws = WidgetStyle.of(t, mTheme.font, mDp);
+        Set<String> shown = new HashSet<>();
+        for (String id : mCfg.list(RearKeys.PAGES)) {
+            if (RearKeys.PAGE_FAVORITES.equals(id)) {
+                int perPage = style.columns * style.rows;
+                for (int start = 0; start < favs.size(); start += perPage) {
+                    pages.add(grid(favs.subList(start, Math.min(favs.size(), start + perPage)),
+                            style));
+                }
+                continue;
+            }
+            if (mLocked && !mCfg.bool(RearKeys.lockKey(id)) || !shown.add(id)) continue;
+            WidgetPage w = mWidgets.get(id);
+            if (w == null) {
+                w = Widgets.create(this, id);
+                if (w == null) continue;
+                mWidgets.put(id, w);
+            }
+            w.setup(ws, mCfg, mLocked);
+            if (w.getParent() != null) ((ViewGroup) w.getParent()).removeView(w);
+            pages.add(w);
+        }
+        for (Map.Entry<String, WidgetPage> e : mWidgets.entrySet()) {
+            if (!shown.contains(e.getKey())) e.getValue().setActive(false);
         }
         mDrawer.setBackgroundColor(t.color("drawer.background",
                 (t.background & 0xFFFFFF) | 0xF2000000));
@@ -671,6 +851,11 @@ public class RearHomeActivity extends Activity implements PagerView.Listener,
                 t.color("pager.indicator", (t.onSurfaceVariant & 0xFFFFFF) | 0x66000000),
                 t.color("pager.indicatorActive", t.onSurface));
         mIndicator.setPosition(mPager.getPage());
+        if (mPendingPage != null) {
+            showWidgetPage(mPendingPage);
+            mPendingPage = null;
+        }
+        updateWidgets();
 
         mPanel.setup(t, mTheme.font, BrightnessControl.forDisplay(this, rearId()), mLocked,
                 mCfg.list(RearKeys.QS_TILES), mCfg.bool(RearKeys.LOCK_TORCH),
@@ -839,6 +1024,7 @@ public class RearHomeActivity extends Activity implements PagerView.Listener,
 
     @Override
     public void onPageSelected(int page) {
+        updateWidgets();
     }
 
     @Override

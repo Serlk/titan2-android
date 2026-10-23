@@ -137,6 +137,10 @@ Any of these overrides one element; the default is shown in brackets.
 | `hint.background` | surface over background | `bouncer.dot` | onSurface |
 | `hint.text` | onSurface | `bouncer.pattern` | accent |
 | | | `bouncer.error` | error |
+| `widget.text` | onSurface (values: time, temperature, title) | `widget.card` | surface over background (buttons, blocks) |
+| `widget.textSecondary` | onSurfaceVariant (labels) | `widget.onCard` | onSurface |
+| `widget.accent` | accent (progress, needles, main buttons) | `widget.warning` | error (timer done, north) |
+| `widget.track` | onSurfaceVariant/0.2 (progress tracks, scales) | | |
 
 ### `typography`
 

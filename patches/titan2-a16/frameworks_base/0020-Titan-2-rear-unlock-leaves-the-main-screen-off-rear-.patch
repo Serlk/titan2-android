@@ -1,0 +1,218 @@
+From 29dc8883df66222a9de05f469c3ebf3a4a61619c Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 16:16:51 +0300
+Subject: [PATCH] Titan 2: rear unlock leaves the main screen off; rear lock
+ timeout setting
+
+An unlock on the rear screen woke the main screen: KeyguardViewMediator.handleHide wakes it
+when the keyguard is hidden while dozing (BOUNCER_DOZING) or dreaming (UNLOCK_DREAMING).
+Titan2RearUnlockService now marks its unlock (titan2HideWithoutWake) and that hide skips
+those wake-ups, unless titan2_rear_unlock_wake_main is set. The end of the keyguard exit
+treats a non-interactive main screen as "locked again during the unlock"; for an unlock from
+the rear screen that is expected and no longer re-locks. When the main screen is woken, the
+service records titan2_rear_unlock_at, so the keyboard light (Titan2Parts) can stay off.
+The relock after the rear screen goes off with the main one off uses
+titan2_rear_lock_timeout (default 1 min; 0 at once; -1 as after a main screen off).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../keyguard/KeyguardViewMediator.java        | 64 ++++++++++++++++---
+ .../keyguard/Titan2RearUnlockService.java     | 32 ++++++++--
+ 2 files changed, 83 insertions(+), 13 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
+index 12c5da446..4ac6c89eb 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
+@@ -1875,6 +1875,7 @@ public class KeyguardViewMediator implements CoreStartable,
+     public void onStartedGoingToSleep(@WindowManagerPolicyConstants.OffReason int offReason) {
+         if (DEBUG) Log.d(TAG, "onStartedGoingToSleep(" + offReason + ")");
+         synchronized (this) {
++            mTitan2RearUnlocking = false;
+             mDeviceInteractive = false;
+             mPowerGestureIntercepted = false;
+             mGoingToSleep = true;
+@@ -2098,13 +2099,47 @@ public class KeyguardViewMediator implements CoreStartable,
+     }
+ 
+     /**
+-     * Titan 2: the rear screen went off with the main one off and the phone unlocked. Lock as
+-     * after a screen off: at once or after the "lock after timeout" delay (an alarm, so it fires
+-     * in suspend too).
++     * Titan 2: the rear screen went off with the main one off and the phone unlocked. Lock after
++     * timeoutMs (an alarm, so it fires in suspend too), at once for 0, or for a negative value as
++     * after a main screen off ("lock after timeout").
+      */
+-    public void titan2LockLater() {
++    public void titan2LockLater(long timeoutMs) {
+         synchronized (this) {
+-            doKeyguardLaterLocked();
++            if (timeoutMs < 0) {
++                doKeyguardLaterLocked();
++            } else if (timeoutMs == 0) {
++                doKeyguardLocked(null);
++            } else {
++                doKeyguardLaterLocked(timeoutMs);
++            }
++        }
++    }
++
++    /**
++     * Titan 2: the keyguard hide that follows within a few seconds comes from an unlock on the
++     * rear screen and does not wake the main screen (from doze or the dream).
++     */
++    public void titan2HideWithoutWake() {
++        synchronized (this) {
++            mTitan2NoWakeUntil = mSystemClock.uptimeMillis() + TITAN2_NO_WAKE_MS;
++        }
++    }
++
++    private static final long TITAN2_NO_WAKE_MS = 5000;
++    /** Until this uptime the next keyguard hide must not wake the main screen. */
++    private long mTitan2NoWakeUntil;
++    /**
++     * The keyguard exit in progress comes from the rear screen: the main screen staying
++     * non-interactive does not mean the device was locked again during the unlock.
++     */
++    private boolean mTitan2RearUnlocking;
++
++    /** Takes the no-wake request of {@link #titan2HideWithoutWake} (one hide). */
++    private boolean titan2TakeNoWake() {
++        synchronized (this) {
++            final boolean noWake = mSystemClock.uptimeMillis() < mTitan2NoWakeUntil;
++            mTitan2NoWakeUntil = 0;
++            return noWake;
+         }
+     }
+ 
+@@ -3138,6 +3173,7 @@ public class KeyguardViewMediator implements CoreStartable,
+      */
+     private void handleShow(Bundle options) {
+         Trace.beginSection("KeyguardViewMediator#handleShow");
++        mTitan2RearUnlocking = false;
+         try {
+             handleShowInner(options);
+         } finally {
+@@ -3353,10 +3389,16 @@ public class KeyguardViewMediator implements CoreStartable,
+      */
+     private void handleHide() {
+         Trace.beginSection("KeyguardViewMediator#handleHide");
++        // Titan 2: an unlock on the rear screen leaves the main screen as it is
++        final boolean titan2NoWake = titan2TakeNoWake();
++        mTitan2RearUnlocking = titan2NoWake;
++        if (titan2NoWake) {
++            Log.d(TAG, "handleHide: unlocked from the rear screen, the main one stays off");
++        }
+ 
+         // It's possible that the device was unlocked (via BOUNCER) while dozing. It's time to
+         // wake up.
+-        if (mAodShowing) {
++        if (mAodShowing && !titan2NoWake) {
+             mPM.wakeUp(mSystemClock.uptimeMillis(), PowerManager.WAKE_REASON_GESTURE,
+                     "com.android.systemui:BOUNCER_DOZING");
+         }
+@@ -3366,7 +3408,7 @@ public class KeyguardViewMediator implements CoreStartable,
+ 
+             // If waking and unlocking, waking from dream has been set properly.
+             if (!mWakeAndUnlocking) {
+-                setUnlockAndWakeFromDream(mStatusBarStateController.isDreaming()
++                setUnlockAndWakeFromDream(!titan2NoWake && mStatusBarStateController.isDreaming()
+                         && mPM.isInteractive(), WakeAndUnlockUpdateReason.HIDE);
+             }
+ 
+@@ -3390,7 +3432,8 @@ public class KeyguardViewMediator implements CoreStartable,
+ 
+             // It's possible that the device was unlocked (via BOUNCER or Fingerprint) while
+             // dreaming. It's time to wake up.
+-            if ((mDreamOverlayShowing || mUpdateMonitor.isDreaming()) && !mOrderUnlockAndWake) {
++            if ((mDreamOverlayShowing || mUpdateMonitor.isDreaming()) && !mOrderUnlockAndWake
++                    && !titan2NoWake) {
+                 mPM.wakeUp(mSystemClock.uptimeMillis(), PowerManager.WAKE_REASON_GESTURE,
+                         "com.android.systemui:UNLOCK_DREAMING");
+             }
+@@ -3764,7 +3807,10 @@ public class KeyguardViewMediator implements CoreStartable,
+ 
+         // Post layout changes to the next frame, so we don't hang at the end of the animation.
+         postAfterTraversal(() -> {
+-            if (!mPM.isInteractive() && !mPendingLock) {
++            // Titan 2: an unlock from the rear screen keeps the main one off on purpose
++            final boolean titan2RearUnlock = mTitan2RearUnlocking;
++            mTitan2RearUnlocking = false;
++            if (!mPM.isInteractive() && !mPendingLock && !titan2RearUnlock) {
+                 Log.e(TAG, "exitKeyguardAndFinishSurfaceBehindRemoteAnimation#postAfterTraversal:"
+                         + " mPM.isInteractive()=" + mPM.isInteractive()
+                         + " mPendingLock=" + mPendingLock + "."
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java b/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java
+index 811149a8b..33f548762 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java
+@@ -35,6 +35,8 @@ import android.os.Messenger;
+ import android.os.RemoteException;
+ import android.os.SystemClock;
+ import android.os.SystemProperties;
++import android.os.UserHandle;
++import android.provider.Settings;
+ import android.util.Log;
+ import android.view.Display;
+ import android.view.DisplayAddress;
+@@ -64,8 +66,11 @@ import javax.inject.Inject;
+  * secondary lock screen make the main screen's bouncer the only way in.
+  *
+  * While the shell is bound, the phone locks again when the rear screen goes off with the main
+- * one off (otherwise a rear unlock would last until the main screen next sleeps), with the same
+- * "lock after timeout" delay as a screen off.
++ * one off (otherwise a rear unlock would last until the main screen next sleeps), after
++ * titan2_rear_lock_timeout (Titan2Parts; default 1 min, -1 = as after a main screen off).
++ * An unlock here leaves the main screen off unless titan2_rear_unlock_wake_main is set; then
++ * titan2_rear_unlock_at tells the keyboard light (Titan2Parts KeyboardLight) to stay off unless
++ * titan2_rear_unlock_kbd_light is set.
+  *
+  * Protocol (Messenger, reply to msg.replyTo):
+  * MSG_QUERY -> arg1 = credential type (LockPatternUtils.CREDENTIAL_TYPE_*), arg2 = pattern grid
+@@ -89,6 +94,13 @@ public class Titan2RearUnlockService extends Service {
+     public static final int RESULT_LOCKOUT = 2;
+     public static final int RESULT_UNAVAILABLE = 3;
+ 
++    // Settings.System, USER_SYSTEM (written by Titan2Parts; see RearKeys)
++    private static final String SETTING_WAKE_MAIN = "titan2_rear_unlock_wake_main";
++    private static final String SETTING_LOCK_TIMEOUT = "titan2_rear_lock_timeout";
++    private static final int LOCK_TIMEOUT_DEFAULT = 60000;
++    /** elapsedRealtime of the last unlock here that woke the main screen (for KeyboardLight). */
++    private static final String SETTING_UNLOCK_AT = "titan2_rear_unlock_at";
++
+     private final LockPatternUtils mLockPatternUtils;
+     private final KeyguardViewMediator mKeyguardViewMediator;
+     private final KeyguardUpdateMonitor mUpdateMonitor;
+@@ -354,6 +366,12 @@ public class Titan2RearUnlockService extends Service {
+         if (userId != mSelectedUserInteractor.getSelectedUserId()) {
+             return;
+         }
++        if (sysInt(SETTING_WAKE_MAIN, 0) == 0) {
++            mKeyguardViewMediator.titan2HideWithoutWake();
++        } else {
++            Settings.System.putStringForUser(getContentResolver(), SETTING_UNLOCK_AT,
++                    Long.toString(SystemClock.elapsedRealtime()), UserHandle.USER_SYSTEM);
++        }
+         mKeyguardViewMediator.getViewMediatorCallback().keyguardDone(userId);
+         if (KeyguardWmStateRefactor.isEnabled()) {
+             mDismissTransitionInteractor.startDismissKeyguardTransition(
+@@ -380,8 +398,14 @@ public class Titan2RearUnlockService extends Service {
+             return;
+         }
+         mRelockPending = true;
+-        Log.i(TAG, "rear display off with the main one off: lock (after the lock timeout)");
+-        mKeyguardViewMediator.titan2LockLater();
++        final int timeout = sysInt(SETTING_LOCK_TIMEOUT, LOCK_TIMEOUT_DEFAULT);
++        Log.i(TAG, "rear display off with the main one off: lock in " + timeout + " ms");
++        mKeyguardViewMediator.titan2LockLater(timeout);
++    }
++
++    private int sysInt(String key, int def) {
++        return Settings.System.getIntForUser(getContentResolver(), key, def,
++                UserHandle.USER_SYSTEM);
+     }
+ 
+     private void cancelRelock() {
+-- 
+2.56.0
+

@@ -32,6 +32,13 @@
     <!-- lock state; unlocking from the rear screen (Titan2RearUnlockService) -->
     <uses-permission android:name="android.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE" />
     <uses-permission android:name="android.permission.CONTROL_KEYGUARD" />
+    <!-- widget pages: media sessions without notification access, steps (self-granted, the
+         shell has the platform signature), the timer alarm, the system weather (OmniJaws) -->
+    <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="org.omnirom.omnijaws.READ_WEATHER" />
 
     <application
         android:name=".RearApp"
@@ -98,5 +105,18 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+        <!-- notification light preview from the Titan2Parts settings -->
+        <receiver
+            android:name=".facet.FacetPreviewReceiver"
+            android:permission="org.titan2.permission.REAR_CONFIG"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.titan2.rear.FACET_PREVIEW" />
+            </intent-filter>
+        </receiver>
+        <!-- the widget timer alarm (its own PendingIntent only) -->
+        <receiver
+            android:name=".widget.TimerState$Receiver"
+            android:exported="false" />
     </application>
 </manifest>

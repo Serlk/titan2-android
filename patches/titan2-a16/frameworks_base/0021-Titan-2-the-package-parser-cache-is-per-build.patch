@@ -1,0 +1,40 @@
+From e98a01c5d780ef15162e5a0a3fb3639bd6e0ca3f Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 20:44:36 +0300
+Subject: [PATCH] Titan 2: the package parser cache is per build
+
+The GSI copies the vendor fingerprint over the system ones at boot (phh rw-system.sh), so
+PackagePartitions.FINGERPRINT is the same for every build: a flash without a data wipe kept
+the parsed packages of the previous build whenever the new image was built before the cache
+was written (the per-package check only compares mtimes). The apps then ran with stale
+resource ids: wrong labels, a SystemUI crash in the worst case. The cache directory now also
+carries the real build number (ro.build.version.incremental, not copied by the GSI), so any
+other build starts with a fresh cache.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../com/android/server/pm/PackageManagerServiceUtils.java  | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/pm/PackageManagerServiceUtils.java b/services/core/java/com/android/server/pm/PackageManagerServiceUtils.java
+index 559d2cde6..feefdbff3 100644
+--- a/services/core/java/com/android/server/pm/PackageManagerServiceUtils.java
++++ b/services/core/java/com/android/server/pm/PackageManagerServiceUtils.java
+@@ -1312,8 +1312,13 @@ public class PackageManagerServiceUtils {
+         // There are several items that need to be combined together to safely
+         // identify cached items. In particular, changing the value of certain
+         // feature flags should cause us to invalidate any caches.
++        // Titan 2: the GSI copies the vendor fingerprint over the system ones at boot (phh
++        // rw-system.sh), so FINGERPRINT is the same for every build and a dirty flash kept the
++        // parsed packages of the previous build whenever the new image was built before the
++        // cache was written (stale resource ids: wrong labels, SystemUI crashes). The real build
++        // number is not copied: it names the cache too.
+         final String cacheName = FORCE_PACKAGE_PARSED_CACHE_ENABLED ? "debug"
+-                : PackagePartitions.FINGERPRINT;
++                : PackagePartitions.FINGERPRINT + "-" + Build.VERSION.INCREMENTAL;
+ 
+         // Reconcile cache directories, keeping only what we'd actually use.
+         for (File cacheDir : FileUtils.listFilesOrEmpty(cacheBaseDir)) {
+-- 
+2.56.0
+

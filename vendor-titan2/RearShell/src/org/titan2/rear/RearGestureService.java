@@ -266,10 +266,13 @@ public class RearGestureService extends Service
                 if (y > mHeight - mEdge && (hasAction(RearKeys.GESTURE_BOTTOM)
                         || hasAction(RearKeys.GESTURE_BOTTOM_HOLD))) {
                     mZone = Z_BOTTOM;
-                } else if (x < mEdge && !mSystemDecors && hasAction(RearKeys.GESTURE_LEFT)) {
+                } else if (x < mEdge && !mSystemDecors && hasAction(RearKeys.GESTURE_LEFT)
+                        && !RearHomeActivity.takesSideSwipes()) {
                     mZone = Z_LEFT;
                 } else if (x > mWidth - mEdge && !mSystemDecors
-                        && hasAction(RearKeys.GESTURE_RIGHT)) {
+                        && hasAction(RearKeys.GESTURE_RIGHT)
+                        && !RearHomeActivity.takesSideSwipes()) {
+                    // on the home pages a side swipe turns the page, it is not "Back"
                     mZone = Z_RIGHT;
                 } else {
                     mZone = Z_NONE;

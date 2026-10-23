@@ -315,6 +315,11 @@
     <string name="rear_unlock_summary">Swipe up on the clock to enter the PIN or pattern. Off: swipe up only shows a hint</string>
     <string name="rear_lock_torch_title">Flashlight while locked</string>
     <string name="rear_lock_torch_summary">Keep the flashlight in the quick panel and gestures when the phone is locked</string>
+    <string name="rear_unlock_wake_main_title">Turn on the main screen</string>
+    <string name="rear_unlock_wake_main_summary">An unlock on the rear screen also turns the main screen on</string>
+    <string name="rear_unlock_kbd_light_title">Keyboard light on rear unlock</string>
+    <string name="rear_unlock_kbd_light_summary">Turn the keyboard light on together with the main screen</string>
+    <string name="rear_lock_timeout_title">Lock after the rear screen turns off</string>
     <string name="rear_notif_access_title">Notification info on the clock</string>
     <string name="rear_notif_access_summary">Lets the rear shell count notifications (and show titles if the lock mode allows it)</string>
     <string name="rear_cat_shell">Rear shell</string>
@@ -487,6 +492,15 @@
         <item>5 minutes</item>
         <item>Never</item>
     </string-array>
+    <string-array name="rear_lock_timeout_entries">
+        <item>Immediately</item>
+        <item>30 seconds</item>
+        <item>1 minute</item>
+        <item>2 minutes</item>
+        <item>5 minutes</item>
+        <item>10 minutes</item>
+        <item>As for the main screen</item>
+    </string-array>
     <string-array name="rear_lock_mode_entries">
         <item>Nothing (screen stays black)</item>
         <item>Clock only</item>
@@ -613,4 +627,97 @@
         <item>UPPER CASE</item>
         <item>First capital</item>
     </string-array>
+    <!-- rear widget pages -->
+    <string name="rear_widgets_title">Pages and widgets</string>
+    <string name="rear_widgets_summary">Music, weather, steps, compass, level, timer, stopwatch</string>
+    <string name="rear_cat_pages">Pages</string>
+    <string name="rear_pages_title">Order and visibility</string>
+    <string name="rear_pages_summary">Which pages follow the clock and in what order</string>
+    <string name="rear_pages_info">Pages after the clock, swiped left and right. Check the ones to show and drag to arrange.</string>
+    <string name="rear_cat_guard">Accidental touches (locked phone)</string>
+    <string name="rear_lock_hold_title">Buttons act on a hold</string>
+    <string name="rear_lock_hold_summary">On the lock screen a widget button works after holding it briefly, so a brush in a pocket or a hand does nothing</string>
+    <string name="rear_lock_palm_title">Ignore palms</string>
+    <string name="rear_lock_palm_summary">On the lock screen touches with several fingers or a large contact are ignored</string>
+    <string name="rear_widget_shown">Show on the rear screen</string>
+    <string name="rear_widget_on_lock">Show when locked</string>
+    <string name="rear_widget_on_lock_summary">Available by swiping from the clock without unlocking</string>
+    <string name="rear_w_music">Music</string>
+    <string name="rear_w_weather">Weather</string>
+    <string name="rear_w_steps">Steps</string>
+    <string name="rear_w_compass">Compass</string>
+    <string name="rear_w_level">Level</string>
+    <string name="rear_w_timer">Timer</string>
+    <string name="rear_w_stopwatch">Stopwatch</string>
+    <string name="rear_music_art">Cover</string>
+    <string name="rear_music_artist">Artist</string>
+    <string name="rear_music_progress">Progress and seeking</string>
+    <string name="rear_music_app">Player app name</string>
+    <string name="rear_weather_city">City</string>
+    <string name="rear_weather_details">Details</string>
+    <string name="rear_weather_details_summary">Feels like, humidity, wind</string>
+    <string name="rear_weather_hourly">Hourly forecast</string>
+    <string name="rear_weather_forecast">Forecast for the next days</string>
+    <string name="rear_steps_goal">Daily goal</string>
+    <string name="rear_steps_distance">Distance</string>
+    <string name="rear_steps_stride">Step length</string>
+    <string name="rear_cm">%1$s cm</string>
+    <string name="rear_compass_degrees">Heading in degrees</string>
+    <string name="rear_compass_ticks">Scale</string>
+    <string name="rear_level_degrees">Angles in degrees</string>
+    <string name="rear_timer_presets">Quick durations</string>
+    <string name="rear_timer_sound">Sound</string>
+    <string name="rear_timer_vibrate">Vibration</string>
+    <string name="rear_stopwatch_laps">Laps</string>
+    <string-array name="rear_page_entries">
+        <item>Music</item>
+        <item>Weather</item>
+        <item>Favorite apps</item>
+        <item>Steps</item>
+        <item>Compass</item>
+        <item>Level</item>
+        <item>Timer</item>
+        <item>Stopwatch</item>
+    </string-array>
+    <string-array name="rear_timer_preset_entries">
+        <item>1, 3, 5, 10 min</item>
+        <item>30 s, 1, 2, 5 min</item>
+        <item>5, 10, 15, 30 min</item>
+        <item>10, 20, 30, 60 min</item>
+    </string-array>
+    <!-- rear notification light -->
+    <string name="rear_facet_title">Facet notification light</string>
+    <string name="rear_facet_summary">Effects on the rear screen for new notifications, even when it is off</string>
+    <string name="rear_facet_enable_title">Light up on notifications</string>
+    <string name="rear_facet_enable_summary">The rear screen plays an effect for each alerting notification and goes off again. Turns on notification access for the rear shell</string>
+    <string name="rear_cat_facet_look">Effect</string>
+    <string name="rear_facet_effect">Effect</string>
+    <string name="rear_facet_color">Color</string>
+    <string name="rear_facet_repeat">Repeats</string>
+    <string name="rear_facet_preview">Preview</string>
+    <string name="rear_facet_preview_summary">Play the effect on the rear screen now</string>
+    <string name="rear_cat_facet_when">When</string>
+    <string name="rear_facet_pose">Phone position</string>
+    <string name="rear_facet_main_on">Also with the main screen on</string>
+    <string name="rear_facet_main_on_summary">Off: only while the main screen is off</string>
+    <string name="rear_facet_dnd">Follow Do not disturb</string>
+    <string name="rear_facet_note">Only alerting notifications light up: silent ones and silent updates do not, and at most one effect every 3 seconds. A touch stops the effect and keeps the rear screen on. On the locked phone the message effect shows only the app unless the lock mode shows titles.</string>
+    <string-array name="rear_facet_effect_entries">
+        <item>Pulse</item>
+        <item>Light from the sides</item>
+        <item>On-screen message</item>
+        <item>CRT glitch</item>
+        <item>Random</item>
+    </string-array>
+    <string-array name="rear_facet_color_entries">
+        <item>Notification color</item>
+        <item>Theme accent</item>
+        <item>White</item>
+    </string-array>
+    <string-array name="rear_facet_pose_entries">
+        <item>Rear screen facing up (phone lying face down)</item>
+        <item>Any position</item>
+    </string-array>
+    <string name="rear_touch_guard_title">Ignore touches while using the front</string>
+    <string name="rear_touch_guard_summary">The rear touch is off while a finger is on the main screen and shortly after typing or using the touchpad: the fingers holding the phone do not touch the rear screen or wake it with a double tap</string>
 </resources>

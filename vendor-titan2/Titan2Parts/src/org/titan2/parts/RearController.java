@@ -105,7 +105,11 @@ final class RearController implements SensorEventListener {
 
                     @Override
                     public void onDisplayChanged(int displayId) {
-                        if (displayId == Display.DEFAULT_DISPLAY) updateMainDisplay();
+                        if (displayId == Display.DEFAULT_DISPLAY) {
+                            updateMainDisplay();
+                        } else {
+                            updateRearDisplay(displayId);
+                        }
                     }
                 }, mHandler,
                 // display state changes are an event type of their own
@@ -160,6 +164,40 @@ final class RearController implements SensorEventListener {
         mEnabled = enabled;
         mFlip = enabled && RearDisplay.getInt(mContext, RearDisplay.SETTING_WAKE_FLIP, 1) == 1;
         updateSensors();
+    }
+
+    /**
+     * The rear touch IC is powered only while the rear screen is on. A double-tap switch sent
+     * while it is off is only noted by the driver and lost when the IC is powered off, so the
+     * screen then sleeps with "power off IC" and a double tap does nothing. Re-send the switch
+     * each time the rear screen turns on (after the touch resume work), so the next sleep puts
+     * the IC into gesture mode.
+     */
+    private static final long DOUBLE_TAP_RESEND_MS = 1000;
+    private boolean mRearOn;
+    private final Runnable mResendDoubleTap = this::resendDoubleTap;
+
+    private void resendDoubleTap() {
+        if (mEnabled && mRearOn) {
+            RearDisplay.setDoubleTap(
+                    RearDisplay.getInt(mContext, RearDisplay.SETTING_WAKE_DOUBLE_TAP, 1) == 1);
+        }
+    }
+
+    private void updateRearDisplay(int displayId) {
+        if (displayId != RearDisplay.findId(mContext)) {
+            return;
+        }
+        Display d = mContext.getSystemService(DisplayManager.class).getDisplay(displayId);
+        final boolean on = d != null && d.getState() == Display.STATE_ON;
+        if (on == mRearOn) {
+            return;
+        }
+        mRearOn = on;
+        mHandler.removeCallbacks(mResendDoubleTap);
+        if (on) {
+            mHandler.postDelayed(mResendDoubleTap, DOUBLE_TAP_RESEND_MS);
+        }
     }
 
     /** The shell home screen on the rear display. */

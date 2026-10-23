@@ -27,4 +27,31 @@
     <string name="unlock_main_screen">Такую блокировку можно снять только на основном экране</string>
     <string name="unlock_delete">Стереть</string>
     <string name="unlock_ok">Готово</string>
+    <!-- страницы виджетов -->
+    <string name="widget_music_none">Ничего не играет</string>
+    <string name="widget_weather_loading">Загрузка погоды…</string>
+    <string name="widget_weather_off">Погода выключена. Включите её в приложении «Погода» на главном экране (нажмите сюда)</string>
+    <string name="widget_weather_feels">Ощущается %1$s</string>
+    <string name="widget_weather_humidity">Влажность %1$s</string>
+    <string name="widget_steps_none">В телефоне нет датчика шагов</string>
+    <string name="widget_steps_goal">из %1$s</string>
+    <string name="widget_steps_distance">%1$s км</string>
+    <string name="widget_compass_calibrate">Калибровка: поводите телефоном восьмёркой</string>
+    <string name="widget_sensor_missing">Нет датчика</string>
+    <string-array name="widget_compass_directions">
+        <item>С</item><item>СВ</item><item>В</item><item>ЮВ</item>
+        <item>Ю</item><item>ЮЗ</item><item>З</item><item>СЗ</item>
+    </string-array>
+    <string-array name="widget_compass_cardinal">
+        <item>С</item><item>В</item><item>Ю</item><item>З</item>
+    </string-array>
+    <string name="widget_start">Старт</string>
+    <string name="widget_pause">Пауза</string>
+    <string name="widget_resume">Дальше</string>
+    <string name="widget_reset">Сброс</string>
+    <string name="widget_timer_stop">Стоп</string>
+    <string name="widget_stopwatch_lap">Круг</string>
+    <string name="widget_stopwatch_lap_row">Круг %1$d   %2$s   %3$s</string>
+    <string name="facet_preview_app">Titan 2</string>
+    <string name="facet_preview_title">Предпросмотр светового уведомления</string>
 </resources>

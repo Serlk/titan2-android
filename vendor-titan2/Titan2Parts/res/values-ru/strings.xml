@@ -311,6 +311,11 @@
     <string name="rear_unlock_summary">Свайп вверх на часах — ввод PIN-кода или графического ключа. Выключено: свайп вверх только показывает подсказку</string>
     <string name="rear_lock_torch_title">Фонарик на блокировке</string>
     <string name="rear_lock_torch_summary">Оставить фонарик в быстрой панели и жестах, когда телефон заблокирован</string>
+    <string name="rear_unlock_wake_main_title">Включать главный экран</string>
+    <string name="rear_unlock_wake_main_summary">Разблокировка на заднем экране включает и главный экран</string>
+    <string name="rear_unlock_kbd_light_title">Подсветка клавиатуры при разблокировке</string>
+    <string name="rear_unlock_kbd_light_summary">Включать подсветку клавиатуры вместе с главным экраном</string>
+    <string name="rear_lock_timeout_title">Блокировать после выключения заднего экрана</string>
     <string name="rear_notif_access_title">Уведомления на часах</string>
     <string name="rear_notif_access_summary">Разрешить оболочке считать уведомления (и показывать заголовки, если это разрешено режимом блокировки)</string>
     <string name="rear_cat_shell">Оболочка заднего экрана</string>
@@ -483,6 +488,15 @@
         <item>5 минут</item>
         <item>Никогда</item>
     </string-array>
+    <string-array name="rear_lock_timeout_entries">
+        <item>Сразу</item>
+        <item>30 секунд</item>
+        <item>1 минута</item>
+        <item>2 минуты</item>
+        <item>5 минут</item>
+        <item>10 минут</item>
+        <item>Как у главного экрана</item>
+    </string-array>
     <string-array name="rear_lock_mode_entries">
         <item>Ничего (экран чёрный)</item>
         <item>Только часы</item>
@@ -609,4 +623,97 @@
         <item>ПРОПИСНЫЕ</item>
         <item>С заглавной</item>
     </string-array>
+    <!-- страницы виджетов заднего экрана -->
+    <string name="rear_widgets_title">Страницы и виджеты</string>
+    <string name="rear_widgets_summary">Музыка, погода, шаги, компас, уровень, таймер, секундомер</string>
+    <string name="rear_cat_pages">Страницы</string>
+    <string name="rear_pages_title">Порядок и видимость</string>
+    <string name="rear_pages_summary">Какие страницы идут после часов и в каком порядке</string>
+    <string name="rear_pages_info">Страницы после часов листаются влево и вправо. Отметьте нужные и перетащите в нужном порядке.</string>
+    <string name="rear_cat_guard">Случайные нажатия (телефон заблокирован)</string>
+    <string name="rear_lock_hold_title">Кнопки по удержанию</string>
+    <string name="rear_lock_hold_summary">На экране блокировки кнопка виджета срабатывает после короткого удержания, поэтому случайное касание в кармане или в руке ничего не делает</string>
+    <string name="rear_lock_palm_title">Не реагировать на ладонь</string>
+    <string name="rear_lock_palm_summary">На экране блокировки касания несколькими пальцами или большой площадью игнорируются</string>
+    <string name="rear_widget_shown">Показывать на заднем экране</string>
+    <string name="rear_widget_on_lock">Показывать на блокировке</string>
+    <string name="rear_widget_on_lock_summary">Доступно свайпом от часов без разблокировки</string>
+    <string name="rear_w_music">Музыка</string>
+    <string name="rear_w_weather">Погода</string>
+    <string name="rear_w_steps">Шаги</string>
+    <string name="rear_w_compass">Компас</string>
+    <string name="rear_w_level">Уровень</string>
+    <string name="rear_w_timer">Таймер</string>
+    <string name="rear_w_stopwatch">Секундомер</string>
+    <string name="rear_music_art">Обложка</string>
+    <string name="rear_music_artist">Исполнитель</string>
+    <string name="rear_music_progress">Прогресс и перемотка</string>
+    <string name="rear_music_app">Название плеера</string>
+    <string name="rear_weather_city">Город</string>
+    <string name="rear_weather_details">Подробности</string>
+    <string name="rear_weather_details_summary">Ощущается, влажность, ветер</string>
+    <string name="rear_weather_hourly">Почасовой прогноз</string>
+    <string name="rear_weather_forecast">Прогноз на следующие дни</string>
+    <string name="rear_steps_goal">Цель на день</string>
+    <string name="rear_steps_distance">Расстояние</string>
+    <string name="rear_steps_stride">Длина шага</string>
+    <string name="rear_cm">%1$s см</string>
+    <string name="rear_compass_degrees">Курс в градусах</string>
+    <string name="rear_compass_ticks">Шкала</string>
+    <string name="rear_level_degrees">Углы в градусах</string>
+    <string name="rear_timer_presets">Быстрые интервалы</string>
+    <string name="rear_timer_sound">Звук</string>
+    <string name="rear_timer_vibrate">Вибрация</string>
+    <string name="rear_stopwatch_laps">Круги</string>
+    <string-array name="rear_page_entries">
+        <item>Музыка</item>
+        <item>Погода</item>
+        <item>Избранные приложения</item>
+        <item>Шаги</item>
+        <item>Компас</item>
+        <item>Уровень</item>
+        <item>Таймер</item>
+        <item>Секундомер</item>
+    </string-array>
+    <string-array name="rear_timer_preset_entries">
+        <item>1, 3, 5, 10 мин</item>
+        <item>30 с, 1, 2, 5 мин</item>
+        <item>5, 10, 15, 30 мин</item>
+        <item>10, 20, 30, 60 мин</item>
+    </string-array>
+    <!-- световые уведомления заднего экрана -->
+    <string name="rear_facet_title">Facet — световые уведомления</string>
+    <string name="rear_facet_summary">Эффекты на заднем экране при новых уведомлениях, даже когда он выключен</string>
+    <string name="rear_facet_enable_title">Светиться при уведомлениях</string>
+    <string name="rear_facet_enable_summary">Задний экран проигрывает эффект на каждое уведомление со звуком и снова гаснет. Включает оболочке доступ к уведомлениям</string>
+    <string name="rear_cat_facet_look">Эффект</string>
+    <string name="rear_facet_effect">Эффект</string>
+    <string name="rear_facet_color">Цвет</string>
+    <string name="rear_facet_repeat">Повторов</string>
+    <string name="rear_facet_preview">Показать</string>
+    <string name="rear_facet_preview_summary">Проиграть эффект на заднем экране сейчас</string>
+    <string name="rear_cat_facet_when">Когда</string>
+    <string name="rear_facet_pose">Положение телефона</string>
+    <string name="rear_facet_main_on">И при включённом главном экране</string>
+    <string name="rear_facet_main_on_summary">Выключено: только когда главный экран погашен</string>
+    <string name="rear_facet_dnd">Учитывать «Не беспокоить»</string>
+    <string name="rear_facet_note">Светятся только уведомления со звуком: тихие и тихие обновления — нет, и не чаще раза в 3 секунды. Касание останавливает эффект и оставляет задний экран включённым. На заблокированном телефоне эффект «сообщение» показывает только приложение, если режим блокировки не разрешает заголовки.</string>
+    <string-array name="rear_facet_effect_entries">
+        <item>Пульсация</item>
+        <item>Свечение с боков</item>
+        <item>Сообщение на экране</item>
+        <item>CRT-глитч</item>
+        <item>Случайный</item>
+    </string-array>
+    <string-array name="rear_facet_color_entries">
+        <item>Цвет уведомления</item>
+        <item>Акцент темы</item>
+        <item>Белый</item>
+    </string-array>
+    <string-array name="rear_facet_pose_entries">
+        <item>Задний экран смотрит вверх (телефон лежит экраном вниз)</item>
+        <item>В любом положении</item>
+    </string-array>
+    <string name="rear_touch_guard_title">Не реагировать при работе спереди</string>
+    <string name="rear_touch_guard_summary">Тач заднего экрана отключается, пока палец на главном экране и сразу после набора на клавиатуре или тачпаде: пальцы, которыми держите телефон, не нажимают на задний экран и не будят его двойным тапом</string>
 </resources>

@@ -20,6 +20,19 @@ public final class RearKeys {
     public static final String SYS_WAKE_FLIP = "titan2_rear_wake_flip";
     /** Status bar, shade, navigation bar and back gesture on the rear display (default off). */
     public static final String SYS_SYSTEM_DECORS = "titan2_rear_system_decors";
+    /** The rear touch is off while the main screen, the keys or the touchpad are used (on). */
+    public static final String SYS_TOUCH_GUARD = "titan2_rear_touch_guard";
+    /** An unlock from the rear screen also turns the main screen on (default off). */
+    public static final String SYS_UNLOCK_WAKE_MAIN = "titan2_rear_unlock_wake_main";
+    /** ...and the keyboard light with it (default off; only with SYS_UNLOCK_WAKE_MAIN). */
+    public static final String SYS_UNLOCK_KBD_LIGHT = "titan2_rear_unlock_kbd_light";
+    /**
+     * Lock the phone this long (ms) after the rear screen goes off with the main one off:
+     * 0 at once, LOCK_TIMEOUT_SYSTEM as after a main screen off ("lock after timeout").
+     */
+    public static final String SYS_LOCK_TIMEOUT = "titan2_rear_lock_timeout";
+    public static final int LOCK_TIMEOUT_DEFAULT = 60000;
+    public static final int LOCK_TIMEOUT_SYSTEM = -1;
     /** obsolete Settings.System keys (moved to the provider once) */
     public static final String LEGACY_SYS_LOCK_MODE = "titan2_rear_lock_mode";
     public static final String LEGACY_SYS_ALLOWED = "titan2_rear_allowed_apps";
@@ -95,6 +108,62 @@ public final class RearKeys {
     public static final String[] ALL_TILES = {
             TILE_TORCH, TILE_WIFI, TILE_DND, TILE_RINGER, TILE_SLEEP, TILE_SETTINGS,
     };
+
+    // --- widget pages (after the clock; "favorites" marks where the favorite pages go) ---
+    /** Checked pages in order (list); unchecked ones are hidden. */
+    public static final String PAGES = "pages";
+    public static final String PAGE_FAVORITES = "favorites";
+    public static final String W_MUSIC = "music";
+    public static final String W_WEATHER = "weather";
+    public static final String W_STEPS = "steps";
+    public static final String W_COMPASS = "compass";
+    public static final String W_LEVEL = "level";
+    public static final String W_TIMER = "timer";
+    public static final String W_STOPWATCH = "stopwatch";
+    public static final String[] ALL_PAGES = {
+            W_MUSIC, W_WEATHER, PAGE_FAVORITES, W_STEPS, W_COMPASS, W_LEVEL, W_TIMER, W_STOPWATCH,
+    };
+    /** "<widget>_lock": the page is also shown while the phone is locked. */
+    public static final String LOCK_SUFFIX = "_lock";
+
+    public static String lockKey(String widget) {
+        return widget + LOCK_SUFFIX;
+    }
+
+    // widget blocks
+    public static final String MUSIC_ART = "music_art";
+    public static final String MUSIC_ARTIST = "music_artist";
+    public static final String MUSIC_PROGRESS = "music_progress";
+    public static final String MUSIC_APP = "music_app";
+    public static final String WEATHER_CITY = "weather_city";
+    public static final String WEATHER_DETAILS = "weather_details";   // feels like, humidity, wind
+    public static final String WEATHER_HOURLY = "weather_hourly";
+    public static final String WEATHER_FORECAST = "weather_forecast";
+    public static final String STEPS_GOAL = "steps_goal";             // steps
+    public static final String STEPS_DISTANCE = "steps_distance";
+    public static final String STEPS_STRIDE = "steps_stride";         // cm
+    public static final String COMPASS_DEGREES = "compass_degrees";
+    public static final String COMPASS_TICKS = "compass_ticks";
+    public static final String LEVEL_DEGREES = "level_degrees";
+    public static final String TIMER_PRESETS = "timer_presets";       // list of seconds
+    public static final String TIMER_SOUND = "timer_sound";
+    public static final String TIMER_VIBRATE = "timer_vibrate";
+    public static final String STOPWATCH_LAPS = "stopwatch_laps";
+    // --- notification light effects (Facet) ---
+    public static final String FACET_ENABLED = "facet_enabled";
+    public static final String FACET_EFFECT = "facet_effect";     // crt | message | sides | pulse | random
+    public static final String FACET_COLOR = "facet_color";       // app | accent | white
+    public static final String FACET_REPEAT = "facet_repeat";     // 1..3
+    public static final String FACET_POSE = "facet_pose";         // face_up | always
+    public static final String FACET_MAIN_ON = "facet_main_on";   // also with the main screen on
+    public static final String FACET_DND = "facet_dnd";           // follow Do not disturb
+    public static final String POSE_FACE_UP = "face_up";
+    public static final String POSE_ALWAYS = "always";
+
+    /** Locked: widget buttons act on a hold, not a tap (pocket protection). */
+    public static final String LOCK_HOLD = "lock_hold";
+    /** Locked: touches with several fingers or a palm-sized contact are ignored. */
+    public static final String LOCK_PALM = "lock_palm";
 
     // --- grid and app list ---
     public static final String GRID_COLUMNS = "grid_columns";        // theme | 1..6
@@ -180,6 +249,36 @@ public final class RearKeys {
         d.put(ANIM_ENABLED, "true");
         d.put(ANIM_SPEED, FROM_THEME);
         d.put(ANIM_STYLE, FROM_THEME);
+        d.put(PAGES, "music,weather,favorites");
+        for (String w : ALL_PAGES) d.put(lockKey(w), "true");
+        d.put(lockKey(PAGE_FAVORITES), "false");
+        d.put(MUSIC_ART, "true");
+        d.put(MUSIC_ARTIST, "true");
+        d.put(MUSIC_PROGRESS, "true");
+        d.put(MUSIC_APP, "false");
+        d.put(WEATHER_CITY, "true");
+        d.put(WEATHER_DETAILS, "true");
+        d.put(WEATHER_HOURLY, "false");
+        d.put(WEATHER_FORECAST, "true");
+        d.put(STEPS_GOAL, "8000");
+        d.put(STEPS_DISTANCE, "true");
+        d.put(STEPS_STRIDE, "75");
+        d.put(COMPASS_DEGREES, "true");
+        d.put(COMPASS_TICKS, "true");
+        d.put(LEVEL_DEGREES, "true");
+        d.put(TIMER_PRESETS, "60,180,300,600,900");
+        d.put(TIMER_SOUND, "true");
+        d.put(TIMER_VIBRATE, "true");
+        d.put(STOPWATCH_LAPS, "true");
+        d.put(LOCK_HOLD, "true");
+        d.put(FACET_ENABLED, "true");
+        d.put(FACET_EFFECT, "pulse");
+        d.put(FACET_COLOR, "app");
+        d.put(FACET_REPEAT, "2");
+        d.put(FACET_POSE, POSE_FACE_UP);
+        d.put(FACET_MAIN_ON, "false");
+        d.put(FACET_DND, "true");
+        d.put(LOCK_PALM, "true");
         DEFAULTS = Collections.unmodifiableMap(d);
     }
 

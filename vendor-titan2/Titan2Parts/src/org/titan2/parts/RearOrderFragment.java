@@ -38,12 +38,14 @@ import java.util.Set;
 /**
  * Ordered rear screen lists with dragging (by the "handle" or a long press):
  *   MODE_FAVORITES: favorites (pages between the clock and the app list);
- *   MODE_TILES    : quick panel tiles (check the needed ones and arrange them).
+ *   MODE_TILES    : quick panel tiles (check the needed ones and arrange them);
+ *   MODE_PAGES    : home pages after the clock (widgets and the favorites), the same way.
  */
 public class RearOrderFragment extends Fragment {
     static final String ARG_MODE = "mode";
     static final int MODE_FAVORITES = 0;
     static final int MODE_TILES = 1;
+    static final int MODE_PAGES = 2;
 
     private int mMode;
     private final List<Item> mItems = new ArrayList<>();
@@ -78,7 +80,8 @@ public class RearOrderFragment extends Fragment {
         int pad = (int) (16 * mDp);
 
         TextView info = new TextView(c);
-        info.setText(mMode == MODE_TILES ? R.string.rear_tiles_info : R.string.rear_favorites_info);
+        info.setText(mMode == MODE_TILES ? R.string.rear_tiles_info
+                : mMode == MODE_PAGES ? R.string.rear_pages_info : R.string.rear_favorites_info);
         info.setPadding(pad, pad / 2, pad, pad / 2);
         info.setTextAppearance(android.R.style.TextAppearance_Material_Body1);
         info.setTextColor(themeColor(c, android.R.attr.textColorSecondary));
@@ -150,21 +153,23 @@ public class RearOrderFragment extends Fragment {
     private void load() {
         Context c = requireContext();
         mItems.clear();
-        if (mMode == MODE_TILES) {
-            CharSequence[] names = getResources().getTextArray(R.array.rear_tile_entries);
-            List<String> on = RearConfig.list(c, RearKeys.QS_TILES);
+        if (checklist()) {
+            String[] all = mMode == MODE_PAGES ? RearKeys.ALL_PAGES : RearKeys.ALL_TILES;
+            CharSequence[] names = getResources().getTextArray(mMode == MODE_PAGES
+                    ? R.array.rear_page_entries : R.array.rear_tile_entries);
+            List<String> on = RearConfig.list(c, listKey());
             for (String k : on) {
-                int idx = indexOf(RearKeys.ALL_TILES, k);
+                int idx = indexOf(all, k);
                 if (idx < 0) continue;
                 Item i = new Item();
                 i.key = k;
                 i.label = names[idx];
                 mItems.add(i);
             }
-            for (int idx = 0; idx < RearKeys.ALL_TILES.length; idx++) {
-                if (on.contains(RearKeys.ALL_TILES[idx])) continue;
+            for (int idx = 0; idx < all.length; idx++) {
+                if (on.contains(all[idx])) continue;
                 Item i = new Item();
-                i.key = RearKeys.ALL_TILES[idx];
+                i.key = all[idx];
                 i.label = names[idx];
                 i.checked = false;
                 mItems.add(i);
@@ -209,8 +214,17 @@ public class RearOrderFragment extends Fragment {
     private void save() {
         List<String> keys = new ArrayList<>();
         for (Item i : mItems) if (i.checked) keys.add(i.key);
-        RearConfig.putList(requireContext(), mMode == MODE_TILES ? RearKeys.QS_TILES
-                : RearKeys.FAVORITES, keys);
+        RearConfig.putList(requireContext(), listKey(), keys);
+    }
+
+    /** Tiles and pages: a fixed set to check and arrange; favorites: added apps. */
+    private boolean checklist() {
+        return mMode == MODE_TILES || mMode == MODE_PAGES;
+    }
+
+    private String listKey() {
+        return mMode == MODE_TILES ? RearKeys.QS_TILES
+                : mMode == MODE_PAGES ? RearKeys.PAGES : RearKeys.FAVORITES;
     }
 
     /** Add to favorites: all apps with a launcher icon (respecting the allow list). */
@@ -321,7 +335,7 @@ public class RearOrderFragment extends Fragment {
             h.label.setText(it.label);
             h.icon.setImageDrawable(it.icon);
             h.icon.setVisibility(it.icon != null ? View.VISIBLE : View.GONE);
-            boolean tiles = mMode == MODE_TILES;
+            boolean tiles = checklist();
             h.check.setVisibility(tiles ? View.VISIBLE : View.GONE);
             h.remove.setVisibility(tiles ? View.GONE : View.VISIBLE);
             h.check.setOnCheckedChangeListener(null);

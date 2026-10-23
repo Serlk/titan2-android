@@ -1,0 +1,38 @@
+From 52c5faec9ecaac6c3920e8e8701eb9e272dfed30 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 15:56:14 +0300
+Subject: [PATCH] Titan 2: a sleeping rear display does not hold transitions
+
+The rear shell is showWhenLocked, so on the sleeping rear display it stays visible-requested
+while stopped and without a surface. The keyguard-going-away transition covers every display
+and collected it, then waited for a frame it cannot draw until the 5 s sync timeout: after a
+fingerprint unlock the main screen stayed black (lit) for 5 s, after a swipe the lock screen
+stayed. A window without a surface on the sleeping rear display now counts as synced.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ services/core/java/com/android/server/wm/WindowState.java | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/services/core/java/com/android/server/wm/WindowState.java b/services/core/java/com/android/server/wm/WindowState.java
+index a6fc5dc1d..661792cb6 100644
+--- a/services/core/java/com/android/server/wm/WindowState.java
++++ b/services/core/java/com/android/server/wm/WindowState.java
+@@ -5826,6 +5826,14 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
+             // window becomes visible while the sync group is still active.
+             return true;
+         }
++        // Titan 2: the rear shell is showWhenLocked, so on the sleeping rear display it stays
++        // visible-requested while stopped and without a surface: it cannot draw until the rear
++        // wakes. Waiting for it held every transition, the unlock one included, for the whole
++        // sync timeout (main screen black or locked for 5 s after the unlock).
++        if (!mHasSurface && mDisplayContent != null && mDisplayContent.isSleeping()
++                && Titan2RearDecor.isRear(mDisplayContent)) {
++            return true;
++        }
+         if (mSyncState == SYNC_STATE_WAITING_FOR_DRAW && mLastConfigReportedToClient && isDrawn()
+                 && (mWmService.mAlwaysSeqId
+                         ? mBufferSeqId <= mSyncSeqId : mPrepareSyncSeqId <= 0)) {
+-- 
+2.56.0
+

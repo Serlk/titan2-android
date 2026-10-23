@@ -45,6 +45,8 @@ public class KeyHandler implements DeviceKeyHandler {
     private final Actions mActions;
     private final Handler mHandler;
     private final TouchpadController mTouchpad;
+    /** The rear touch is off while the front (screen, keys, touchpad) is in use. */
+    private final RearTouchGuard mRearGuard;
     private final KeyboardLight mLight;
     private final PowerManager mPowerManager;
     private boolean mRemapSynced; // mHandler only
@@ -66,6 +68,8 @@ public class KeyHandler implements DeviceKeyHandler {
         mPowerManager = context.getSystemService(PowerManager.class);
         mLight = new KeyboardLight(context, mHandler);
         mTouchpad = new TouchpadController(context, mLight);
+        mRearGuard = new RearTouchGuard(context, mHandler);
+        mTouchpad.setFrontActivityListener(mRearGuard::onTouchpad);
         mTouchpad.start();
         // app profiles: the KeyRemapper remap changes when the focused window changes.
         // There are no change notifications for sys.titan2.focus: poll every 500 ms while profiles exist.
@@ -106,6 +110,7 @@ public class KeyHandler implements DeviceKeyHandler {
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             mTouchpad.onKeyActivity(event);
             mLight.onKey(event);
+            mRearGuard.onKey(event);
         }
         if (seenBefore(event)) {
             // second pass of the same event (before dispatch to the window): already decided
@@ -151,6 +156,11 @@ public class KeyHandler implements DeviceKeyHandler {
         InputDevice dev = event.getDevice();
         if (dev == null || !RearDisplay.TOUCH_DEVICE.equals(dev.getName())) {
             return false;
+        }
+        if (event.getAction() == KeyEvent.ACTION_DOWN && mRearGuard.frontBusy()) {
+            // the phone is used from the front: a finger holding it, not a double tap
+            Log.d(TAG, "rear double tap ignored, the front is in use");
+            return true;
         }
         if (event.getAction() == KeyEvent.ACTION_DOWN && RearDisplay.isEnabled(mContext)
                 && RearDisplay.getInt(mContext, RearDisplay.SETTING_WAKE_DOUBLE_TAP, 1) == 1) {

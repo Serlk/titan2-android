@@ -16,6 +16,7 @@ import android.view.Display;
 
 import androidx.fragment.app.Fragment;
 import androidx.preference.ListPreference;
+import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.SeekBarPreference;
@@ -44,6 +45,9 @@ public class RearScreenActivity extends CollapsingToolbarBaseActivity {
     static final String P_TILES = "tiles";
     static final String P_THEMES = "themes";
     static final String P_EDITOR = "editor";
+    static final String P_WIDGETS = "widgets";
+    static final String P_PAGES = "pages";
+    static final String P_FACET = "facet";
 
     static Intent page(Context c, String page) {
         return new Intent(c, RearScreenActivity.class).putExtra(EXTRA_PAGE, page);
@@ -81,6 +85,18 @@ public class RearScreenActivity extends CollapsingToolbarBaseActivity {
                 title = R.string.rear_tiles_title;
                 f = RearOrderFragment.create(RearOrderFragment.MODE_TILES);
                 break;
+            case P_WIDGETS:
+                title = R.string.rear_widgets_title;
+                f = new WidgetsFragment();
+                break;
+            case P_FACET:
+                title = R.string.rear_facet_title;
+                f = new FacetFragment();
+                break;
+            case P_PAGES:
+                title = R.string.rear_pages_title;
+                f = RearOrderFragment.create(RearOrderFragment.MODE_PAGES);
+                break;
             case P_THEMES:
                 title = R.string.rear_themes_title;
                 f = new RearThemesFragment();
@@ -114,6 +130,7 @@ public class RearScreenActivity extends CollapsingToolbarBaseActivity {
         private SwitchPreferenceCompat mNotif;
         private SwitchPreferenceCompat mEnabled;
         private ListPreference mTimeout;
+        private ListPreference mLockTimeout;
         /** Settings.System switches of this page -> default, refreshed in onResume. */
         private final java.util.Map<SwitchPreferenceCompat, Integer> mSysSwitches =
                 new java.util.LinkedHashMap<>();
@@ -191,6 +208,8 @@ public class RearScreenActivity extends CollapsingToolbarBaseActivity {
                     R.string.rear_wake_flip_summary).setDependency(RearKeys.SYS_ENABLED);
             sysSwitch(scr, RearKeys.SYS_SYSTEM_DECORS, R.string.rear_system_decors_title,
                     R.string.rear_system_decors_summary, 0).setDependency(RearKeys.SYS_ENABLED);
+            sysSwitch(scr, RearKeys.SYS_TOUCH_GUARD, R.string.rear_touch_guard_title,
+                    R.string.rear_touch_guard_summary).setDependency(RearKeys.SYS_ENABLED);
 
             // --- lock ---
             PreferenceCategory lock = cat(screen, R.string.rear_cat_lock);
@@ -200,6 +219,31 @@ public class RearScreenActivity extends CollapsingToolbarBaseActivity {
                             RearKeys.LOCK_CLOCK_TITLES});
             sw(lock, RearKeys.UNLOCK_FROM_REAR, R.string.rear_unlock_title,
                     R.string.rear_unlock_summary);
+            // read by SystemUI (Titan2RearUnlockService) and KeyboardLight: Settings.System
+            sysSwitch(lock, RearKeys.SYS_UNLOCK_WAKE_MAIN, R.string.rear_unlock_wake_main_title,
+                    R.string.rear_unlock_wake_main_summary, 0)
+                    .setDependency(RearKeys.UNLOCK_FROM_REAR);
+            sysSwitch(lock, RearKeys.SYS_UNLOCK_KBD_LIGHT, R.string.rear_unlock_kbd_light_title,
+                    R.string.rear_unlock_kbd_light_summary, 0)
+                    .setDependency(RearKeys.SYS_UNLOCK_WAKE_MAIN);
+            ListPreference lockTimeout = new ListPreference(c);
+            lockTimeout.setKey(RearKeys.SYS_LOCK_TIMEOUT);
+            lockTimeout.setPersistent(false);
+            lockTimeout.setTitle(R.string.rear_lock_timeout_title);
+            lockTimeout.setDialogTitle(R.string.rear_lock_timeout_title);
+            lockTimeout.setEntries(R.array.rear_lock_timeout_entries);
+            lockTimeout.setEntryValues(new CharSequence[] {"0", "30000", "60000", "120000",
+                    "300000", "600000", String.valueOf(RearKeys.LOCK_TIMEOUT_SYSTEM)});
+            lockTimeout.setValue(String.valueOf(RearConfig.sysInt(c, RearKeys.SYS_LOCK_TIMEOUT,
+                    RearKeys.LOCK_TIMEOUT_DEFAULT)));
+            lockTimeout.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+            lockTimeout.setOnPreferenceChangeListener((p, v) -> {
+                RearConfig.putSysInt(c, RearKeys.SYS_LOCK_TIMEOUT, Integer.parseInt((String) v));
+                return true;
+            });
+            lock.addPreference(lockTimeout);
+            mLockTimeout = lockTimeout;
+            lockTimeout.setDependency(RearKeys.SYS_ENABLED);
             sw(lock, RearKeys.LOCK_TORCH, R.string.rear_lock_torch_title,
                     R.string.rear_lock_torch_summary);
             mNotif = new SwitchPreferenceCompat(c);
@@ -231,6 +275,10 @@ public class RearScreenActivity extends CollapsingToolbarBaseActivity {
                     page(c, P_CLOCK));
             link(shell, R.string.rear_home_title, R.string.rear_home_summary,
                     page(c, P_HOME));
+            link(shell, R.string.rear_widgets_title, R.string.rear_widgets_summary,
+                    page(c, P_WIDGETS));
+            link(shell, R.string.rear_facet_title, R.string.rear_facet_summary,
+                    page(c, P_FACET));
             link(shell, R.string.rear_gestures_title, R.string.rear_gestures_summary,
                     page(c, P_GESTURES));
             link(shell, R.string.rear_tiles_title, R.string.rear_tiles_summary,
@@ -270,7 +318,10 @@ public class RearScreenActivity extends CollapsingToolbarBaseActivity {
             refreshSys();
             for (String key : new String[] {RearKeys.SYS_ENABLED, RearKeys.SYS_TIMEOUT,
                     RearKeys.SYS_WAKE_DOUBLE_TAP, RearKeys.SYS_WAKE_DOUBLE_TAP_POSE,
-                    RearKeys.SYS_WAKE_FLIP, RearKeys.SYS_SYSTEM_DECORS}) {
+                    RearKeys.SYS_WAKE_FLIP, RearKeys.SYS_SYSTEM_DECORS,
+                    RearKeys.SYS_UNLOCK_WAKE_MAIN, RearKeys.SYS_UNLOCK_KBD_LIGHT,
+                    RearKeys.SYS_TOUCH_GUARD,
+                    RearKeys.SYS_LOCK_TIMEOUT}) {
                 c.getContentResolver().registerContentObserver(Settings.System.getUriFor(key),
                         false, mSysObserver, UserHandle.USER_SYSTEM);
             }
@@ -290,6 +341,9 @@ public class RearScreenActivity extends CollapsingToolbarBaseActivity {
             String t = String.valueOf(RearConfig.sysInt(c, RearKeys.SYS_TIMEOUT,
                     RearKeys.TIMEOUT_DEFAULT));
             if (!t.equals(mTimeout.getValue())) mTimeout.setValue(t);
+            String lt = String.valueOf(RearConfig.sysInt(c, RearKeys.SYS_LOCK_TIMEOUT,
+                    RearKeys.LOCK_TIMEOUT_DEFAULT));
+            if (!lt.equals(mLockTimeout.getValue())) mLockTimeout.setValue(lt);
             for (java.util.Map.Entry<SwitchPreferenceCompat, Integer> e
                     : mSysSwitches.entrySet()) {
                 e.getKey().setChecked(
@@ -380,6 +434,169 @@ public class RearScreenActivity extends CollapsingToolbarBaseActivity {
 
         static final CharSequence[] DATE_FORMATS = {RearKeys.FROM_THEME, "EEE d MMM",
                 "EEEE d MMMM", "d MMMM", "dd MM", "dd MM yyyy", "EEEE", "EEE d"};
+    }
+
+    /** Notification light effects on the rear screen (RearShell facet.FacetController). */
+    public static class FacetFragment extends RearPrefs {
+        private static final ComponentName LISTENER = new ComponentName(
+                RearContract.SHELL_PACKAGE, RearContract.SHELL_PACKAGE
+                        + ".RearNotificationListener");
+        private static final String ACTION_PREVIEW = "org.titan2.rear.FACET_PREVIEW";
+
+        @Override
+        protected void build(PreferenceScreen screen) {
+            Context c = getContext();
+            SwitchPreferenceCompat on = sw(screen, RearKeys.FACET_ENABLED,
+                    R.string.rear_facet_enable_title, R.string.rear_facet_enable_summary);
+            on.setOnPreferenceChangeListener((p, v) -> {
+                // the effects come from the shell's notification listener: grant it access
+                if ((Boolean) v) {
+                    try {
+                        c.getSystemService(NotificationManager.class)
+                                .setNotificationListenerAccessGranted(LISTENER, true);
+                    } catch (RuntimeException e) {
+                        android.util.Log.w("Titan2Parts", "notification access: " + e);
+                    }
+                }
+                return true;
+            });
+
+            PreferenceCategory look = cat(screen, R.string.rear_cat_facet_look);
+            list(look, RearKeys.FACET_EFFECT, R.string.rear_facet_effect,
+                    R.array.rear_facet_effect_entries, new CharSequence[] {"pulse", "sides",
+                            "message", "crt", "random"}).setDependency(RearKeys.FACET_ENABLED);
+            list(look, RearKeys.FACET_COLOR, R.string.rear_facet_color,
+                    R.array.rear_facet_color_entries, new CharSequence[] {"app", "accent",
+                            "white"}).setDependency(RearKeys.FACET_ENABLED);
+            CharSequence[] reps = {"1", "2", "3"};
+            list(look, RearKeys.FACET_REPEAT, R.string.rear_facet_repeat, reps, reps)
+                    .setDependency(RearKeys.FACET_ENABLED);
+            Preference preview = new Preference(c);
+            preview.setTitle(R.string.rear_facet_preview);
+            preview.setSummary(R.string.rear_facet_preview_summary);
+            preview.setOnPreferenceClickListener(p -> {
+                c.sendBroadcast(new Intent(ACTION_PREVIEW).setPackage(RearContract.SHELL_PACKAGE));
+                return true;
+            });
+            look.addPreference(preview);
+            preview.setDependency(RearKeys.FACET_ENABLED);
+
+            PreferenceCategory when = cat(screen, R.string.rear_cat_facet_when);
+            list(when, RearKeys.FACET_POSE, R.string.rear_facet_pose,
+                    R.array.rear_facet_pose_entries, new CharSequence[] {RearKeys.POSE_FACE_UP,
+                            RearKeys.POSE_ALWAYS}).setDependency(RearKeys.FACET_ENABLED);
+            sw(when, RearKeys.FACET_MAIN_ON, R.string.rear_facet_main_on,
+                    R.string.rear_facet_main_on_summary).setDependency(RearKeys.FACET_ENABLED);
+            sw(when, RearKeys.FACET_DND, R.string.rear_facet_dnd, 0)
+                    .setDependency(RearKeys.FACET_ENABLED);
+            screen.addPreference(KeyPrefs.footer(c, getString(R.string.rear_facet_note)));
+        }
+    }
+
+    /**
+     * Widget pages: their order, pocket protection on the lock screen, and per widget whether
+     * it shows while locked and which blocks it has.
+     */
+    public static class WidgetsFragment extends RearPrefs {
+        @Override
+        protected void build(PreferenceScreen screen) {
+            Context c = getContext();
+            PreferenceCategory pages = cat(screen, R.string.rear_cat_pages);
+            link(pages, R.string.rear_pages_title, R.string.rear_pages_summary,
+                    page(c, P_PAGES));
+
+            PreferenceCategory guard = cat(screen, R.string.rear_cat_guard);
+            sw(guard, RearKeys.LOCK_HOLD, R.string.rear_lock_hold_title,
+                    R.string.rear_lock_hold_summary);
+            sw(guard, RearKeys.LOCK_PALM, R.string.rear_lock_palm_title,
+                    R.string.rear_lock_palm_summary);
+
+            PreferenceCategory music = cat(screen, R.string.rear_w_music);
+            onLock(music, RearKeys.W_MUSIC);
+            sw(music, RearKeys.MUSIC_ART, R.string.rear_music_art, 0);
+            sw(music, RearKeys.MUSIC_ARTIST, R.string.rear_music_artist, 0);
+            sw(music, RearKeys.MUSIC_PROGRESS, R.string.rear_music_progress, 0);
+            sw(music, RearKeys.MUSIC_APP, R.string.rear_music_app, 0);
+
+            PreferenceCategory weather = cat(screen, R.string.rear_w_weather);
+            onLock(weather, RearKeys.W_WEATHER);
+            sw(weather, RearKeys.WEATHER_CITY, R.string.rear_weather_city, 0);
+            sw(weather, RearKeys.WEATHER_DETAILS, R.string.rear_weather_details,
+                    R.string.rear_weather_details_summary);
+            sw(weather, RearKeys.WEATHER_HOURLY, R.string.rear_weather_hourly, 0);
+            sw(weather, RearKeys.WEATHER_FORECAST, R.string.rear_weather_forecast, 0);
+
+            PreferenceCategory steps = cat(screen, R.string.rear_w_steps);
+            onLock(steps, RearKeys.W_STEPS);
+            CharSequence[] goals = {"3000", "5000", "6000", "8000", "10000", "12000", "15000",
+                    "20000"};
+            list(steps, RearKeys.STEPS_GOAL, R.string.rear_steps_goal, goals, goals);
+            sw(steps, RearKeys.STEPS_DISTANCE, R.string.rear_steps_distance, 0);
+            CharSequence[] strides = {"55", "60", "65", "70", "75", "80", "85", "90"};
+            CharSequence[] strideLabels = new CharSequence[strides.length];
+            for (int i = 0; i < strides.length; i++) {
+                strideLabels[i] = getString(R.string.rear_cm, strides[i]);
+            }
+            list(steps, RearKeys.STEPS_STRIDE, R.string.rear_steps_stride, strideLabels, strides)
+                    .setDependency(RearKeys.STEPS_DISTANCE);
+
+            PreferenceCategory compass = cat(screen, R.string.rear_w_compass);
+            onLock(compass, RearKeys.W_COMPASS);
+            sw(compass, RearKeys.COMPASS_DEGREES, R.string.rear_compass_degrees, 0);
+            sw(compass, RearKeys.COMPASS_TICKS, R.string.rear_compass_ticks, 0);
+
+            PreferenceCategory level = cat(screen, R.string.rear_w_level);
+            onLock(level, RearKeys.W_LEVEL);
+            sw(level, RearKeys.LEVEL_DEGREES, R.string.rear_level_degrees, 0);
+
+            PreferenceCategory timer = cat(screen, R.string.rear_w_timer);
+            onLock(timer, RearKeys.W_TIMER);
+            list(timer, RearKeys.TIMER_PRESETS, R.string.rear_timer_presets,
+                    R.array.rear_timer_preset_entries, new CharSequence[] {
+                            "60,180,300,600,900", "30,60,120,300", "300,600,900,1800",
+                            "600,1200,1800,3600"});
+            sw(timer, RearKeys.TIMER_SOUND, R.string.rear_timer_sound, 0);
+            sw(timer, RearKeys.TIMER_VIBRATE, R.string.rear_timer_vibrate, 0);
+
+            PreferenceCategory stopwatch = cat(screen, R.string.rear_w_stopwatch);
+            onLock(stopwatch, RearKeys.W_STOPWATCH);
+            sw(stopwatch, RearKeys.STOPWATCH_LAPS, R.string.rear_stopwatch_laps, 0);
+        }
+
+        /**
+         * "Show on the rear screen" (the widget is in RearKeys.PAGES; a new one goes to the end)
+         * and "show when locked", which depends on it.
+         */
+        private void onLock(PreferenceCategory g, String widget) {
+            Context c = getContext();
+            SwitchPreferenceCompat shown = new SwitchPreferenceCompat(c);
+            shown.setKey("page_" + widget);
+            shown.setPersistent(false);
+            shown.setTitle(R.string.rear_widget_shown);
+            shown.setChecked(RearConfig.list(c, RearKeys.PAGES).contains(widget));
+            shown.setOnPreferenceChangeListener((p, v) -> {
+                java.util.List<String> pages = new java.util.ArrayList<>(
+                        RearConfig.list(c, RearKeys.PAGES));
+                pages.remove(widget);
+                if ((Boolean) v) pages.add(widget);
+                RearConfig.putList(c, RearKeys.PAGES, pages);
+                return true;
+            });
+            g.addPreference(shown);
+            sw(g, RearKeys.lockKey(widget), R.string.rear_widget_on_lock,
+                    R.string.rear_widget_on_lock_summary).setDependency(shown.getKey());
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            // the order page may have changed the list
+            java.util.List<String> pages = RearConfig.list(getContext(), RearKeys.PAGES);
+            for (String w : RearKeys.ALL_PAGES) {
+                SwitchPreferenceCompat p = findPreference("page_" + w);
+                if (p != null) p.setChecked(pages.contains(w));
+            }
+        }
     }
 
     /** Gestures: navigation over apps and home screen gestures. */

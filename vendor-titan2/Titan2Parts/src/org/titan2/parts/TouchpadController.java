@@ -395,6 +395,7 @@ final class TouchpadController {
             case MSG_FRAME: {
                 final int rx = msg.arg2 >>> 16, ry = msg.arg2 & 0xffff;
                 final long t = (Long) msg.obj;
+                frontActivity();
                 if (msg.arg1 == FRAME_DOWN) {
                     onTouchDown(rx, ry, t);
                 } else if (msg.arg1 == FRAME_MOVE) {
@@ -419,6 +420,22 @@ final class TouchpadController {
             default:
                 break;
         }
+    }
+
+    /** Told about touchpad use (the rear touch guard), at most every FRONT_NOTIFY_MS. */
+    private Runnable mFrontActivity;
+    private long mFrontNotified;
+    private static final long FRONT_NOTIFY_MS = 200;
+
+    void setFrontActivityListener(Runnable r) {
+        mFrontActivity = r;
+    }
+
+    private void frontActivity() {
+        final long now = SystemClock.uptimeMillis();
+        if (mFrontActivity == null || now - mFrontNotified < FRONT_NOTIFY_MS) return;
+        mFrontNotified = now;
+        mFrontActivity.run();
     }
 
     /** Every key ACTION_DOWN, from KeyHandler (input thread: returns at once). */

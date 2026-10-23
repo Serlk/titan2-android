@@ -14,6 +14,7 @@ import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -201,13 +202,35 @@ final class KeyboardLight {
 
     private final Runnable mScreenOn = () -> {
         try {
-            if (displayState() == Display.STATE_ON) {
+            if (displayState() == Display.STATE_ON && !rearUnlockWake()) {
                 activity();
             }
         } catch (RuntimeException e) {
             Log.w(TAG, "screen on", e);
         }
     };
+
+    /** SystemUI (Titan2RearUnlockService): elapsedRealtime of an unlock on the rear screen
+     * that also turned the main screen on. */
+    private static final String SETTING_REAR_UNLOCK_AT = "titan2_rear_unlock_at";
+    private static final String SETTING_REAR_UNLOCK_KBD = "titan2_rear_unlock_kbd_light";
+    /** The main screen turned on this soon after a rear unlock: that unlock turned it on. */
+    private static final long REAR_UNLOCK_WAKE_MS = 3000;
+
+    /**
+     * The main screen was turned on by an unlock on the rear screen and the keyboard light is
+     * not wanted for that (titan2_rear_unlock_kbd_light, default off). A key press still lights it.
+     */
+    private boolean rearUnlockWake() {
+        if (getSetting(SETTING_REAR_UNLOCK_KBD, "0").trim().equals("1")) return false;
+        try {
+            final long at = Long.parseLong(getSetting(SETTING_REAR_UNLOCK_AT, "0").trim());
+            final long age = SystemClock.elapsedRealtime() - at;
+            return at > 0 && age >= 0 && age < REAR_UNLOCK_WAKE_MS;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
 
     // ================= Activity =================
 

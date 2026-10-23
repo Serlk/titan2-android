@@ -14,11 +14,14 @@ import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.text.TextUtils;
 
+import org.titan2.rear.facet.FacetController;
+
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Notification counter for the clock. Works only if the user granted notification access
+ * Notification counter for the clock, and the source of the notification light effects
+ * (facet.FacetController). Works only if the user granted notification access
  * (link in the settings); without access the counter is simply not shown (count = -1).
  * Counts dismissable (not ongoing) ones, not group summaries.
  */
@@ -152,6 +155,14 @@ public class RearNotificationListener extends NotificationListenerService {
     @Override
     public void onListenerConnected() {
         sInstance = this;
+        // the notifications already shown are not new: their updates must not light up
+        try {
+            StatusBarNotification[] all = getActiveNotifications();
+            if (all != null) {
+                for (StatusBarNotification sbn : all) FacetController.get(this).onSeen(sbn);
+            }
+        } catch (RuntimeException ignored) {
+        }
         recount();
     }
 
@@ -168,11 +179,13 @@ public class RearNotificationListener extends NotificationListenerService {
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn, RankingMap rankingMap) {
+        FacetController.get(this).onPosted(sbn, rankingMap);
         recount();
     }
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap) {
+        FacetController.get(this).onRemoved(sbn);
         recount();
     }
 }
