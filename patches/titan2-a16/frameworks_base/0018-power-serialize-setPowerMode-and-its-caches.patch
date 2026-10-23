@@ -1,0 +1,47 @@
+From bed862cd427b993e2f19abe07274b575ee390c78 Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 03:04:00 +0300
+Subject: [PATCH 18/18] power: serialize setPowerMode and its caches
+
+setPowerMode is called from binder threads and the power manager's own threads. The
+blocked-mode set was cleared and refilled from a property while other threads read it,
+and the unsupported-mode set and the last-state cache were plain static containers:
+a data race in system_server. The last-state cache is also only right if the HAL sees
+the calls in the order the cache records them. One mutex now covers the whole call,
+the HAL call included.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../jni/com_android_server_power_PowerManagerService.cpp  | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/services/core/jni/com_android_server_power_PowerManagerService.cpp b/services/core/jni/com_android_server_power_PowerManagerService.cpp
+index 3341bfe5e..91b694347 100644
+--- a/services/core/jni/com_android_server_power_PowerManagerService.cpp
++++ b/services/core/jni/com_android_server_power_PowerManagerService.cpp
+@@ -36,6 +36,7 @@
+ #include <hardware_legacy/power.h>
+ #include <hidl/ServiceManagement.h>
+ #include <limits.h>
++#include <mutex>
+ #include <android-base/properties.h>
+ #include <sstream>
+ #include <unordered_map>
+@@ -111,7 +112,14 @@ static const std::unordered_set<int>& getBlockedPowerModes() {
+     return sModes;
+ }
+ 
++// Titan 2: setPowerMode runs on binder threads and the power manager's own threads. Its caches
++// (the blocked mode set rebuilt from a property, the unsupported modes, the last state) are not
++// thread-safe, and the last-state cache is only right if the HAL sees the calls in the same order:
++// the whole call, the HAL call included, holds this lock.
++static std::mutex gPowerModeMutex;
++
+ static bool setPowerMode(Mode mode, bool enabled) {
++    std::lock_guard<std::mutex> lock(gPowerModeMutex);
+     // skip modes that the vendor HAL doesn't support.
+     // two-layer cache: persist property (for buggy AIDL HALs that lie about
+     // isModeSupported), and runtime detection via isUnsupported().
+-- 
+2.56.0
+

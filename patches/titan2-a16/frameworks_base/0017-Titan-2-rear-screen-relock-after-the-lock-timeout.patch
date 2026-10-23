@@ -1,0 +1,143 @@
+From b29beada8b4c837eabfa3d822fb31c896e2e636c Mon Sep 17 00:00:00 2001
+From: serlk <22211586+Serlk@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 03:04:00 +0300
+Subject: [PATCH 17/18] Titan 2: rear screen relock after the lock timeout
+
+When the rear screen went off with the main one off and the phone unlocked,
+Titan2RearUnlockService locked at once (doKeyguardTimeout), ignoring "lock after
+screen timeout". It now asks KeyguardViewMediator to lock as after a screen off
+(doKeyguardLaterLocked: at once or after the delay, through an alarm so it fires in
+suspend), and cancels that lock when a screen turns on again. The main display's own
+off/on stays with KeyguardViewMediator.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../keyguard/KeyguardViewMediator.java        | 18 ++++++++
+ .../keyguard/Titan2RearUnlockService.java     | 46 ++++++++++++++++---
+ 2 files changed, 58 insertions(+), 6 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
+index b5ebd7d04..12c5da446 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
+@@ -2097,6 +2097,24 @@ public class KeyguardViewMediator implements CoreStartable,
+         doKeyguardLaterForChildProfilesLocked();
+     }
+ 
++    /**
++     * Titan 2: the rear screen went off with the main one off and the phone unlocked. Lock as
++     * after a screen off: at once or after the "lock after timeout" delay (an alarm, so it fires
++     * in suspend too).
++     */
++    public void titan2LockLater() {
++        synchronized (this) {
++            doKeyguardLaterLocked();
++        }
++    }
++
++    /** Titan 2: a screen is on again before the delayed lock of {@link #titan2LockLater}. */
++    public void titan2CancelLockLater() {
++        synchronized (this) {
++            cancelDoKeyguardLaterLocked();
++        }
++    }
++
+     private void doKeyguardLaterForChildProfilesLocked() {
+         for (UserInfo profile : mUserTracker.getUserProfiles()) {
+             if (!profile.isEnabled()) continue;
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java b/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java
+index 9dba03f24..811149a8b 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/Titan2RearUnlockService.java
+@@ -64,7 +64,8 @@ import javax.inject.Inject;
+  * secondary lock screen make the main screen's bouncer the only way in.
+  *
+  * While the shell is bound, the phone locks again when the rear screen goes off with the main
+- * one off (otherwise a rear unlock would last until the main screen next sleeps).
++ * one off (otherwise a rear unlock would last until the main screen next sleeps), with the same
++ * "lock after timeout" delay as a screen off.
+  *
+  * Protocol (Messenger, reply to msg.replyTo):
+  * MSG_QUERY -> arg1 = credential type (LockPatternUtils.CREDENTIAL_TYPE_*), arg2 = pattern grid
+@@ -113,10 +114,18 @@ public class Titan2RearUnlockService extends Service {
+                 public void onDisplayChanged(int displayId) {
+                     if (isRearDisplay(displayId)) {
+                         relockIfAllOff();
++                    } else if (displayId == Display.DEFAULT_DISPLAY && mRelockPending
++                            && anyScreenOn()) {
++                        // the main screen's own off/on is KeyguardViewMediator's: only drop
++                        // our pending lock once a screen is on again
++                        cancelRelock();
+                     }
+                 }
+             };
+ 
++    /** titan2LockLater() was requested and not cancelled by a screen turning on. */
++    private boolean mRelockPending;
++
+     @Inject
+     public Titan2RearUnlockService(LockPatternUtils lockPatternUtils,
+             KeyguardViewMediator keyguardViewMediator,
+@@ -142,6 +151,7 @@ public class Titan2RearUnlockService extends Service {
+         mThread.start();
+         mMessenger = new Messenger(new Handler(mThread.getLooper(), this::handleMessage));
+         mDisplayManager = getSystemService(DisplayManager.class);
++        // a physical display's on/off is a basic change: the default event mask has it
+         mDisplayManager.registerDisplayListener(mDisplayListener, mMainHandler);
+     }
+ 
+@@ -351,22 +361,46 @@ public class Titan2RearUnlockService extends Service {
+         }
+     }
+ 
+-    /** The rear screen went off, the main one is off too and the phone is unlocked: lock it. */
++    /**
++     * The rear screen went off, the main one is off too and the phone is unlocked: lock it, at
++     * once or after the "lock after timeout" delay. A screen on again cancels a pending lock.
++     */
+     private void relockIfAllOff() {
+         if (mKeyguardViewMediator.isShowing()) {
++            mRelockPending = false;
++            return;
++        }
++        if (anyScreenOn()) {
++            if (mRelockPending) {
++                cancelRelock();
++            }
++            return;
++        }
++        if (mRelockPending) {
+             return;
+         }
++        mRelockPending = true;
++        Log.i(TAG, "rear display off with the main one off: lock (after the lock timeout)");
++        mKeyguardViewMediator.titan2LockLater();
++    }
++
++    private void cancelRelock() {
++        mRelockPending = false;
++        Log.i(TAG, "a screen is on again: delayed lock cancelled");
++        mKeyguardViewMediator.titan2CancelLockLater();
++    }
++
++    private boolean anyScreenOn() {
+         final Display main = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
+         if (main == null || main.getState() == Display.STATE_ON) {
+-            return;
++            return true;
+         }
+         for (Display d : mDisplayManager.getDisplays()) {
+             if (isRearDisplay(d.getDisplayId()) && d.getState() == Display.STATE_ON) {
+-                return;
++                return true;
+             }
+         }
+-        Log.i(TAG, "rear display off with the main one off: lock");
+-        mKeyguardViewMediator.doKeyguardTimeout(null);
++        return false;
+     }
+ 
+     private boolean isRearDisplay(int displayId) {
+-- 
+2.56.0
+

@@ -13,6 +13,9 @@ import android.os.UserHandle;
 import android.util.Log;
 import android.view.Display;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 /**
  * Rear screen modes for the side keys: selfie with the main camera, QR, light.
  * Required order (RearDisplay): panel flag -> display -> wake its group ->
@@ -42,6 +45,11 @@ public class RearService extends Service {
     private String mMode;
     /** A mode is running: RearController does not turn the display off under it. */
     private static volatile boolean sActive;
+    /**
+     * Turning the display off after a mode: closing its window waits (up to a second) and must
+     * not block the main thread. One thread keeps the off/on order.
+     */
+    private static final ExecutorService sOffExecutor = Executors.newSingleThreadExecutor();
 
     /** Panel power is known (backlight flag via agolddaemon): the modes are available. */
     static final boolean SUPPORTED = true;
@@ -102,8 +110,12 @@ public class RearService extends Service {
         }
         mMode = mode;
         sActive = true;
-        RearDisplay.setPanel(true);
-        mDm.enableConnectedDisplay(id);
+        // after a pending turn-off of the previous mode (same thread, in order)
+        final DisplayManager dm = mDm;
+        sOffExecutor.execute(() -> {
+            RearDisplay.setPanel(true);
+            dm.enableConnectedDisplay(id);
+        });
         // the display appears asynchronously, and after a re-enable it may get a new logical id:
         // look it up again until it is available for windows
         final long deadline = SystemClock.uptimeMillis() + DISPLAY_WAIT_MS;
@@ -150,8 +162,18 @@ public class RearService extends Service {
             if (RearDisplay.isEnabled(this)) {
                 RearController.launchShell(this, id);
             } else {
-                mDm.disableConnectedDisplay(id);
-                RearDisplay.setPanel(false);
+                // RearActivity finishes on ACTION_FINISH asynchronously; a window still on the
+                // display when it is disabled would be moved to the main display
+                final Context app = getApplicationContext();
+                sOffExecutor.execute(() -> {
+                    RearDisplay.closeApps(id);
+                    // a new mode or the enabled rear screen may own the display by now
+                    if (sActive || RearDisplay.isEnabled(app)) {
+                        return;
+                    }
+                    app.getSystemService(DisplayManager.class).disableConnectedDisplay(id);
+                    RearDisplay.setPanel(false);
+                });
             }
         }
         stopSelf();
