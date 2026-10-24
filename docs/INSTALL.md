@@ -59,10 +59,11 @@ Find the active slot: `fastboot getvar current-slot` (usually `a`). Slot `a` is 
 
 ## 5. Flashing
 
-> **Dual boot (titan2-boot).** If `boot_a` holds the Android/Linux boot menu, flashing a
-> `boot.img` into `boot_a` replaces the menu: Android then boots directly and nothing else breaks.
-> To get the menu back, rebuild it with that `boot.img`. Later the Android kernel will move to
-> `boot_b` and `boot_a` will hold only the menu; these instructions will change then.
+> **Dual boot (titan2-boot).** If `boot_a` holds the Android/Linux boot menu, the Android kernel
+> is inside the menu image. Flashing a `boot.img` into `boot_a` replaces the menu: Android then
+> boots directly and nothing else breaks. To keep the menu with a new kernel, rebuild the menu with
+> that `boot.img` (titan2-tools: `ANDROID_BOOT=<boot.img> scripts/make-bootmenu.sh`) and flash the
+> result into `boot_a`. Do not install OTA updates with the menu: they switch the phone to slot B.
 
 The phone must be in the **bootloader** (lk): `adb reboot bootloader`. Check the mode: `fastboot getvar is-userspace` must return `no`.
 
